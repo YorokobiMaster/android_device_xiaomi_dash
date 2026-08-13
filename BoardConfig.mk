@@ -39,6 +39,9 @@ BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE := ext4
 
+# First-stage init mounts metadata before switching to the system image root.
+BOARD_USES_METADATA_PARTITION := true
+
 # These partitions remain stock EROFS images; the product configuration below
 # explicitly disables rebuilding them.
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := erofs
@@ -47,15 +50,15 @@ BOARD_SYSTEM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 BOARD_VENDOR_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 BOARD_ODM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 
-# Stock dash logical-partition allocations. Fixed bounds keep the requested
-# inode counts; build_image otherwise trims dynamically sized ext4 images back
-# to roughly the installed inode usage.
-BOARD_SYSTEMIMAGE_PARTITION_SIZE := 7299997696
+# Image bounds sized to fit the stock HyperOS LP group. Fixed bounds keep the
+# requested inode counts; build_image otherwise trims dynamically sized ext4
+# images back to roughly the installed inode usage.
+BOARD_SYSTEMIMAGE_PARTITION_SIZE := 880340992
 BOARD_PRODUCTIMAGE_PARTITION_SIZE := 1199996928
 BOARD_SYSTEM_EXTIMAGE_PARTITION_SIZE := 479997952
 
-# Development inode headroom within those measured bounds.
-BOARD_SYSTEMIMAGE_EXTFS_INODE_COUNT := 65536
+# Inode headroom within those measured bounds.
+BOARD_SYSTEMIMAGE_EXTFS_INODE_COUNT := 8192
 BOARD_PRODUCTIMAGE_EXTFS_INODE_COUNT := 32768
 BOARD_SYSTEM_EXTIMAGE_EXTFS_INODE_COUNT := 32768
 
