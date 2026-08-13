@@ -62,3 +62,6 @@ BOARD_SYSTEM_EXTIMAGE_EXTFS_INODE_COUNT := 32768
 # Do not define BOARD_SUPER_PARTITION_SIZE or dynamic-partition group sizes
 # in this stage. Per-partition sizes above come from the stock LP metadata;
 # image file sizes are not a substitute for the physical super layout.
+
+SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += \
+    $(DEVICE_PATH)/sepolicy/system_ext/private

@@ -1,0 +1,31 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+aidl_interface {
+    name: "vendor.xiaomi.hardware.fingerprintextension",
+    vendor_available: true,
+    srcs: [
+        "vendor/xiaomi/hardware/fingerprintextension/IXiaomiFingerprint.aidl",
+    ],
+    stability: "vintf",
+    backend: {
+        cpp: {
+            enabled: false,
+        },
+        java: {
+            enabled: true,
+            sdk_version: "module_current",
+        },
+        ndk: {
+            enabled: true,
+        },
+    },
+    frozen: true,
+    versions_with_info: [
+        {
+            version: "1",
+            imports: [],
+        },
+    ],
+
+}
