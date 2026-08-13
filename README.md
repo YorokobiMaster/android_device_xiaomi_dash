@@ -21,6 +21,6 @@ Current validation target:
 
 ```sh
 source build/envsetup.sh
-lunch lineage_dash-bp2a-userdebug
+lunch lineage_dash-bp4a-userdebug
 m systemimage systemextimage productimage
 ```
