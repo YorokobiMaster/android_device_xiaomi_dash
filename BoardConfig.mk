@@ -22,6 +22,9 @@ TARGET_NO_BOOTLOADER := true
 # device-module/config integration, so this stage builds no boot images.
 TARGET_NO_KERNEL := true
 
+# Let first-stage init continue past optional module load failures during bring-up.
+BOARD_KERNEL_CMDLINE += androidboot.first_stage_console=2
+
 # Stock images use a 4096-byte page size.
 BOARD_KERNEL_PAGESIZE := 4096
 BOARD_FLASH_BLOCK_SIZE := 262144
