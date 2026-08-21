@@ -1,0 +1,8 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# Reuse the retained vendor policy type for Xiaomi's display feature cdev.
+# AOSP ueventd creates the node at /dev/disp_feature; init only needs to expose
+# the stock pathname and adjust its stock ownership and mode before HAL start.
+type vendor_displayfeature_device, dev_type;
+allow init vendor_displayfeature_device:chr_file { getattr link setattr };

@@ -1,0 +1,19 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+prebuilt_etc {
+    name: "init.dash-system_ext.rc",
+    src: "init.dash-system_ext.rc",
+    sub_dir: "init",
+    system_ext_specific: true,
+}
+
+cc_binary {
+    name: "dash-displayfeature-compat",
+    srcs: ["displayfeature_compat.c"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    system_ext_specific: true,
+}

@@ -1,0 +1,20 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# The retained Xiaomi displayfeature HAL opens this stock ueventd path, while
+# the AOSP ueventd configuration exposes the same mi_display cdev at
+# /dev/disp_feature. Use a hard link so the stock pathname resolves to that
+# same already-labelled device node.
+service dash-displayfeature-compat /system_ext/bin/dash-displayfeature-compat
+    class core
+    user root
+    group root graphics
+    disabled
+    oneshot
+
+on early-boot
+    mkdir /dev/mi_display 0755 root graphics
+    wait /dev/disp_feature 5
+    exec_start dash-displayfeature-compat
+    chown root graphics /dev/mi_display/disp_feature
+    chmod 0666 /dev/mi_display/disp_feature

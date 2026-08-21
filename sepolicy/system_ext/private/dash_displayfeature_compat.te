@@ -1,0 +1,10 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+type dash_displayfeature_compat, coredomain, domain;
+type dash_displayfeature_compat_exec, system_file_type, exec_type, file_type;
+
+init_daemon_domain(dash_displayfeature_compat)
+
+allow dash_displayfeature_compat device:dir { add_name search write };
+allow dash_displayfeature_compat vendor_displayfeature_device:chr_file { getattr link };

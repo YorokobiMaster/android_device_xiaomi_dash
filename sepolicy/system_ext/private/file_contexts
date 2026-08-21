@@ -1,0 +1,5 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+/(system_ext|system/system_ext)/bin/dash-displayfeature-compat  u:object_r:dash_displayfeature_compat_exec:s0
+/dev/disp_feature  u:object_r:vendor_displayfeature_device:s0

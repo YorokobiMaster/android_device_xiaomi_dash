@@ -29,11 +29,6 @@
         <item>79</item>
     </integer-array>
 
-    <!-- Default min refresh rate floor: the panel's 30 Hz mode is the DDIC
-         idle/AOD mode (fixed AOD brightness + idle entry), not a seamless
-         refresh step, so 30<->120 transitions visibly flicker. -->
-    <integer name="config_defaultMinRefreshRate">60</integer>
-
     <!-- Always-on display. The panel driver provides doze/AOD support
          (doze_enable/doze_disable, AOD brightness tables); present it
          through SystemUI's doze service. -->

@@ -27,3 +27,12 @@ PRODUCT_SOONG_NAMESPACES += \
     $(DEVICE_PATH)
 
 PRODUCT_PACKAGES += DashFod
+
+PRODUCT_PACKAGES += \
+    DashFrameworkResOverlay \
+    DashRefreshRate \
+    dash-displayfeature-compat \
+    init.dash-system_ext.rc
+
+DEVICE_PACKAGE_OVERLAYS += \
+    $(DEVICE_PATH)/overlay
