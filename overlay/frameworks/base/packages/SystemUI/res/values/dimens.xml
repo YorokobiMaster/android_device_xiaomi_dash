@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Rounded corners content padding -->
+    <dimen name="rounded_corner_content_padding">84px</dimen>
+
+    <!-- Keyguard bouncer / PIN pad spacing to avoid UDFPS sensor overlap -->
+    <dimen name="keyguard_security_view_bottom_margin">120dp</dimen>
+</resources>

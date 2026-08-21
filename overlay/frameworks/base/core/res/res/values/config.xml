@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- VoLTE available -->
+    <bool name="config_device_volte_available">true</bool>
+
+    <!-- Display cutout / camera hole (AOSP physical circular path) -->
+    <string name="config_mainBuiltInDisplayCutout" translatable="false">
+        M -18,66.5
+        a 18,18 0 1,0 36,0
+        a 18,18 0 1,0 -36,0
+        Z
+    </string>
+
+    <string name="config_mainBuiltInDisplayCutoutRectApproximation" translatable="false">
+        M -18,66.5
+        h 36
+        v 36
+        h -36
+        Z
+    </string>
+
+    <!-- Display shape -->
+    <string name="config_mainDisplayShape" translatable="false">M20 0h1040s20 0 20 20v2360s0 20 -20 20h-1040s-20 0 -20 -20v-2360s0 -20 20 -20</string>
+
+    <!-- UDFPS Sensor Properties: [sensorLocationX, sensorLocationY, sensorRadius] -->
+    <integer-array name="config_udfps_sensor_props" translatable="false">
+        <item>640</item>
+        <item>2124</item>
+        <item>79</item>
+    </integer-array>
+</resources>

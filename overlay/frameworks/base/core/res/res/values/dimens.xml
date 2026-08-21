@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Status bar height -->
+    <dimen name="status_bar_height_default">152px</dimen>
+    <dimen name="status_bar_height_portrait">152px</dimen>
+    <dimen name="status_bar_height_landscape">28dp</dimen>
+
+    <!-- Rounded corners -->
+    <dimen name="rounded_corner_radius">156px</dimen>
+    <dimen name="rounded_corner_radius_top">156px</dimen>
+    <dimen name="rounded_corner_radius_bottom">156px</dimen>
+    <dimen name="rounded_corner_content_padding">84px</dimen>
+</resources>
