@@ -127,7 +127,7 @@ public final class RefreshRatePolicyTest {
 
         policy(store).onDisplayState(RefreshRatePolicy.DisplayState.DOZE);
 
-        assertEquals("brightness=2,begin=60.0/null,min=0.0,peak=30.0",
+        assertEquals("brightness=2,begin=60.0/null,peak=30.0,min=0.0",
                 store.operations.toString());
     }
 

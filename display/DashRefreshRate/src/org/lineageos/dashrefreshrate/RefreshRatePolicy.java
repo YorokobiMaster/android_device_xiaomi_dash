@@ -81,17 +81,20 @@ final class RefreshRatePolicy {
             return;
         }
 
-        if (!mStore.writeMinRefreshRate(DOZE_MIN_REFRESH_RATE)) {
+        // AOSP caps the physical rate at max(min, peak). Cap peak first so an
+        // awake 60 Hz floor prevents an intermediate jump to 120 Hz. Releasing
+        // the floor afterwards produces a single 60 -> 30 transition.
+        if (!mStore.writePeakRefreshRate(DOZE_PEAK_REFRESH_RATE)) {
             mStore.clearDozeOverride();
-            mLogger.log("failed to release minimum refresh rate for doze");
+            mLogger.log("failed to cap peak refresh rate for doze");
             return;
         }
 
-        if (!mStore.writePeakRefreshRate(DOZE_PEAK_REFRESH_RATE)) {
-            if (mStore.writeMinRefreshRate(awakeMinRefreshRate)) {
+        if (!mStore.writeMinRefreshRate(DOZE_MIN_REFRESH_RATE)) {
+            if (mStore.writePeakRefreshRate(awakePeakRefreshRate)) {
                 mStore.clearDozeOverride();
             }
-            mLogger.log("failed to cap peak refresh rate for doze");
+            mLogger.log("failed to release minimum refresh rate for doze");
             return;
         }
 
