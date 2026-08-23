@@ -1,0 +1,6 @@
+type dash_vibrator_adapter, coredomain, domain;
+type dash_vibrator_adapter_exec, system_file_type, exec_type, file_type;
+
+init_daemon_domain(dash_vibrator_adapter)
+hal_server_domain(dash_vibrator_adapter, hal_vibrator)
+hal_client_domain(dash_vibrator_adapter, hal_vibrator)

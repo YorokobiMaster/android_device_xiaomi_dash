@@ -1,0 +1,17 @@
+service dash-vibrator-adapter /system_ext/bin/hw/dash-vibrator-adapter
+    class hal
+    user system
+    group system
+    disabled
+
+on property:init.svc.vibratorfeature-hal-service=stopping
+    stop dash-vibrator-adapter
+
+on property:init.svc.vibratorfeature-hal-service=stopped
+    stop dash-vibrator-adapter
+
+on property:init.svc.vibratorfeature-hal-service=restarting
+    stop dash-vibrator-adapter
+
+on property:init.svc.vibratorfeature-hal-service=running
+    start dash-vibrator-adapter

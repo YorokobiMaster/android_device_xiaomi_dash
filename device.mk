@@ -61,6 +61,7 @@ PRODUCT_PACKAGES += \
     dash-ims-telephony-metrics \
     dash-displayfeature-compat \
     dash_powerhint.json \
+    dash-vibrator-adapter \
     init.dash-system_ext.rc \
     libhidltransport \
     libmtk_vt_wrapper \

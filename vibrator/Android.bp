@@ -1,0 +1,49 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+cc_library_static {
+    name: "libdash_vibrator_adapter",
+    host_supported: true,
+    srcs: ["DashVibratorAdapter.cpp"],
+    export_include_dirs: ["."],
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+    ],
+    static_libs: [
+        "android.hardware.vibrator-V1-ndk",
+    ],
+}
+
+cc_binary {
+    name: "dash-vibrator-adapter",
+    srcs: ["service.cpp"],
+    static_libs: [
+        "libdash_vibrator_adapter",
+        "android.hardware.vibrator-V1-ndk",
+    ],
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+    ],
+    system_ext_specific: true,
+    relative_install_path: "hw",
+    init_rc: ["dash-vibrator-adapter.rc"],
+    vintf_fragments: ["dash-vibrator-adapter.xml"],
+}
+
+cc_test_host {
+    name: "DashVibratorAdapterHostTest",
+    srcs: ["tests/DashVibratorAdapterTest.cpp"],
+    static_libs: [
+        "libdash_vibrator_adapter",
+        "android.hardware.vibrator-V1-ndk",
+        "libgtest",
+        "libgtest_main",
+    ],
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+    ],
+    test_suites: ["general-tests"],
+}
