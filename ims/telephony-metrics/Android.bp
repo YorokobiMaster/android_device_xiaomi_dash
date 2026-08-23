@@ -1,0 +1,19 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+// Binary-compatibility boot jar for the retained MediaTek IMS/GBA APKs on dash.
+//
+// AOSP removed com.android.internal.telephony.metrics.TelephonyMetrics, but the
+// stock ImsService.apk and MtkGbaService.apk from OS3.0.305.0.WPLCNXM still
+// invoke it. This jar provides exactly the referenced ABI (a singleton accessor
+// plus four void metric writers) as no-ops. It is NOT an IMS or telemetry
+// implementation and must not grow beyond the referenced descriptors.
+
+java_library {
+    name: "dash-ims-telephony-metrics",
+    srcs: ["src/**/*.java"],
+    installable: true,
+    sdk_version: "core_platform",
+    system_ext_specific: true,
+    use_generic_config: true,
+}

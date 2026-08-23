@@ -1,0 +1,10 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+prebuilt_etc {
+    name: "privapp-permissions-mediatek-ims",
+    src: "privapp-permissions-mediatek-ims.xml",
+    filename_from_src: true,
+    sub_dir: "permissions",
+    system_ext_specific: true,
+}

@@ -27,7 +27,8 @@ PRODUCT_SOONG_NAMESPACES += \
     $(DEVICE_PATH) \
     $(DEVICE_PATH)/power \
     $(DEVICE_PATH)/vintf \
-    hardware/lineage/interfaces/power-libperfmgr
+    hardware/lineage/interfaces/power-libperfmgr \
+    vendor/xiaomi/dash
 
 # Bluetooth profiles exposed by the stock phone product.
 PRODUCT_PRODUCT_PROPERTIES += \
@@ -51,10 +52,31 @@ PRODUCT_PACKAGES += DashFod
 PRODUCT_PACKAGES += \
     DashFrameworkResOverlay \
     DashRefreshRate \
+    ImsService \
+    MtkGbaService \
     android.hardware.power-service.lineage-libperfmgr \
+    dash-ims-appcompat \
+    mediatek-common \
+    mediatek-ims-base \
+    dash-ims-telephony-metrics \
     dash-displayfeature-compat \
     dash_powerhint.json \
-    init.dash-system_ext.rc
+    init.dash-system_ext.rc \
+    libhidltransport \
+    libmtk_vt_wrapper \
+    libvcodec_cap \
+    libvcodec_capenc \
+    privapp-permissions-mediatek-ims \
+    sysconfig-com.mediatek.ims \
+    vendor.mediatek.hardware.videotelephony-V1-ndk \
+    vendor.mediatek.hardware.videotelephony@1.0
+
+# MediaTek's retained IMS and GBA services load these classes from the boot
+# class path. Keep the device additions after the common platform jars.
+PRODUCT_BOOT_JARS_EXTRA += \
+    system_ext:mediatek-common \
+    system_ext:mediatek-ims-base \
+    system_ext:dash-ims-telephony-metrics
 
 DEVICE_PACKAGE_OVERLAYS += \
     $(DEVICE_PATH)/overlay

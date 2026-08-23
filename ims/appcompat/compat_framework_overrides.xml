@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<overrides>
+    <change-overrides changeId="161145287">
+        <validated>
+            <override-value packageName="com.mediatek.ims" enabled="false"/>
+        </validated>
+        <raw>
+            <raw-override-value packageName="com.mediatek.ims" minVersionCode="36" maxVersionCode="36" enabled="false"/>
+        </raw>
+    </change-overrides>
+</overrides>
