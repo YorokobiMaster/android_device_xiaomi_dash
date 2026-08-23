@@ -3,6 +3,10 @@
     <!-- VoLTE available -->
     <bool name="config_device_volte_available">true</bool>
 
+    <!-- 5G modes supported by the retained MediaTek radio stack -->
+    <bool name="config_telephony5gStandalone">true</bool>
+    <bool name="config_telephony5gNonStandalone">true</bool>
+
     <!-- Display cutout / camera hole (AOSP physical circular path) -->
     <string name="config_mainBuiltInDisplayCutout" translatable="false">
         M -18,66.5
