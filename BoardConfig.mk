@@ -71,3 +71,8 @@ BOARD_SYSTEM_EXTIMAGE_EXTFS_INODE_COUNT := 32768
 
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += \
     $(DEVICE_PATH)/sepolicy/system_ext/private
+
+# Build the Lineage power service in system_ext while retaining the stock
+# MediaTek daemon and its IMtkPowerService backend in vendor.
+$(call soong_config_set,power_libperfmgr,system_ext,true)
+$(call soong_config_set,power_libperfmgr,mode_extension_lib,//device/xiaomi/dash/power:libperfmgr-ext-dash)

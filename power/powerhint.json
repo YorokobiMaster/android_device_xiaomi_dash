@@ -1,0 +1,45 @@
+{
+  "Nodes": [
+    {
+      "Name": "CPUCluster0MinFreq",
+      "Path": "/sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq",
+      "Values": ["400000", "2000000"],
+      "DefaultIndex": 0,
+      "ResetOnInit": true
+    },
+    {
+      "Name": "CPUCluster1MinFreq",
+      "Path": "/sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq",
+      "Values": ["622000", "2850000"],
+      "DefaultIndex": 0,
+      "ResetOnInit": true
+    },
+    {
+      "Name": "CPUCluster2MinFreq",
+      "Path": "/sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq",
+      "Values": ["798000", "3250000"],
+      "DefaultIndex": 0,
+      "ResetOnInit": true
+    }
+  ],
+  "Actions": [
+    {
+      "PowerHint": "GAME_LOADING",
+      "Node": "CPUCluster0MinFreq",
+      "Value": "2000000",
+      "Duration": 5000
+    },
+    {
+      "PowerHint": "GAME_LOADING",
+      "Node": "CPUCluster1MinFreq",
+      "Value": "2850000",
+      "Duration": 5000
+    },
+    {
+      "PowerHint": "GAME_LOADING",
+      "Node": "CPUCluster2MinFreq",
+      "Value": "3250000",
+      "Duration": 5000
+    }
+  ]
+}

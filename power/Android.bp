@@ -1,0 +1,42 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+soong_namespace {
+    imports: [
+        "hardware/google/interfaces",
+        "hardware/google/pixel",
+        "hardware/lineage/interfaces/power-libperfmgr",
+    ],
+}
+
+cc_binary {
+    name: "android.hardware.power-service.lineage-libperfmgr",
+    defaults: ["power-libperfmgr-service-defaults"],
+    init_rc: ["android.hardware.power-service.lineage-libperfmgr.dash.rc"],
+    vintf_fragments: ["//device/xiaomi/dash/vintf:android.hardware.power-service.lineage.dash.xml"],
+    system_ext_specific: true,
+    cflags: ["-DPOWER_LIBPERFMGR_SYSTEM_EXT"],
+    exclude_shared_libs: [
+        "libperfmgr",
+        "pixel-power-ext-V1-ndk",
+    ],
+    static_libs: [
+        "libperfmgr",
+        "pixel-power-ext-V1-ndk",
+    ],
+}
+
+cc_library_static {
+    name: "libperfmgr-ext-dash",
+    defaults: ["android.hardware.power-ndk_shared"],
+    system_ext_specific: true,
+    srcs: ["PowerModeExtension.cpp"],
+    shared_libs: ["libbase"],
+}
+
+prebuilt_etc {
+    name: "dash_powerhint.json",
+    src: "powerhint.json",
+    filename: "powerhint.json",
+    system_ext_specific: true,
+}

@@ -1,0 +1,9 @@
+<!-- Copyright (C) 2026 @YorokobiMaster -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<manifest version="1.0" type="framework">
+    <hal format="aidl">
+        <name>android.hardware.power</name>
+        <version>6</version>
+        <fqname>IPower/default</fqname>
+    </hal>
+</manifest>

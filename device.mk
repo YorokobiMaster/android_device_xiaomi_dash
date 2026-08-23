@@ -24,7 +24,10 @@ DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := \
     $(DEVICE_PATH)/framework_compatibility_matrix.xml
 
 PRODUCT_SOONG_NAMESPACES += \
-    $(DEVICE_PATH)
+    $(DEVICE_PATH) \
+    $(DEVICE_PATH)/power \
+    $(DEVICE_PATH)/vintf \
+    hardware/lineage/interfaces/power-libperfmgr
 
 # Bluetooth profiles exposed by the stock phone product.
 PRODUCT_PRODUCT_PROPERTIES += \
@@ -48,7 +51,9 @@ PRODUCT_PACKAGES += DashFod
 PRODUCT_PACKAGES += \
     DashFrameworkResOverlay \
     DashRefreshRate \
+    android.hardware.power-service.lineage-libperfmgr \
     dash-displayfeature-compat \
+    dash_powerhint.json \
     init.dash-system_ext.rc
 
 DEVICE_PACKAGE_OVERLAYS += \
