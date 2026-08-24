@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="io.github.yorokobimaster.dash.faceunlock">
+
+    <uses-permission android:name="android.permission.MANAGE_BIOMETRIC" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/DashFaceEnrollTheme">
+
+        <activity
+            android:name=".FaceEnrollActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:permission="android.permission.USE_BIOMETRIC_INTERNAL"
+            android:screenOrientation="portrait" />
+    </application>
+</manifest>

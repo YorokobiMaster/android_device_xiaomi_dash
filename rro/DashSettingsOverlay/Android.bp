@@ -1,0 +1,10 @@
+//
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+//
+
+runtime_resource_overlay {
+    name: "DashSettingsOverlay",
+    certificate: "platform",
+    system_ext_specific: true,
+}

@@ -50,8 +50,10 @@ PRODUCT_PRODUCT_PROPERTIES += \
 PRODUCT_PACKAGES += DashFod
 
 PRODUCT_PACKAGES += \
+    DashFaceEnroll \
     DashFrameworkResOverlay \
     DashRefreshRate \
+    DashSettingsOverlay \
     ImsService \
     MtkGbaService \
     android.hardware.power-service.lineage-libperfmgr \

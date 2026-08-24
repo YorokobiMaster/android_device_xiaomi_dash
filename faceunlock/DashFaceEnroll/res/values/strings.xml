@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">Dash Face Enrollment</string>
+    <string name="enroll_title">Center your face in the circle</string>
+    <string name="enroll_waiting">Preparing face enrollment…</string>
+    <string name="enroll_scanning">Keep looking at the screen</string>
+    <string name="enroll_remaining">Enrollment progress: %1$d steps remaining</string>
+    <string name="enroll_complete">Face enrollment complete</string>
+    <string name="enroll_failed_title">Enrollment was not completed</string>
+    <string name="enroll_missing_token">The credential authorization expired. Return and try again.</string>
+    <string name="enroll_service_unavailable">Face enrollment service is unavailable.</string>
+    <string name="enroll_surface_lost">The preview surface was lost. Return and try again.</string>
+    <string name="enroll_skip">Skip</string>
+    <string name="enroll_done">Done</string>
+    <string name="enroll_ok">OK</string>
+    <string name="preview_description">Face enrollment camera preview</string>
+</resources>
