@@ -7,20 +7,11 @@
     <bool name="config_telephony5gStandalone">true</bool>
     <bool name="config_telephony5gNonStandalone">true</bool>
 
-    <!-- Display cutout / camera hole (AOSP physical circular path) -->
+    <!-- Display cutout / camera hole. Copied verbatim from HyperOS
+         DevicesAndroidOverlay.apk: a 66px-wide rectangle spanning from
+         the top edge down to 152px, matching status_bar_height. -->
     <string name="config_mainBuiltInDisplayCutout" translatable="false">
-        M -18,66.5
-        a 18,18 0 1,0 36,0
-        a 18,18 0 1,0 -36,0
-        Z
-    </string>
-
-    <string name="config_mainBuiltInDisplayCutoutRectApproximation" translatable="false">
-        M -18,66.5
-        h 36
-        v 36
-        h -36
-        Z
+        M 0,0 H -33 V 152 H 33 V 0 H 0 Z
     </string>
 
     <!-- Display shape -->
