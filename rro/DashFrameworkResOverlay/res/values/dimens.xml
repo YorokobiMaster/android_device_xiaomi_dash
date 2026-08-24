@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Status bar height. These live in the RRO because LineageOS ships
+         status_bar_height_default/portrait in its static product overlay
+         (vendor/lineage/overlay/no-rro), which outranks DEVICE_PACKAGE_OVERLAYS.
+         152px clears the camera hole (physical bottom edge ~130px). -->
+    <dimen name="status_bar_height_default">152px</dimen>
+    <dimen name="status_bar_height_portrait">152px</dimen>
+    <dimen name="status_bar_height_landscape">28dp</dimen>
+</resources>
