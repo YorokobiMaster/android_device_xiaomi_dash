@@ -54,6 +54,7 @@ PRODUCT_PACKAGES += \
     DashFrameworkResOverlay \
     DashRefreshRate \
     DashSettingsOverlay \
+    DashWifiOverlay \
     ImsService \
     MtkGbaService \
     android.hardware.power-service.lineage-libperfmgr \
