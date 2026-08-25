@@ -7,6 +7,9 @@
     <bool name="config_telephony5gStandalone">true</bool>
     <bool name="config_telephony5gNonStandalone">true</bool>
 
+    <!-- SIM hot swap -->
+    <bool name="config_hotswapCapable">true</bool>
+
     <!-- Display cutout / camera hole. Copied verbatim from HyperOS
          DevicesAndroidOverlay.apk: a 66px-wide rectangle spanning from
          the top edge down to 152px, matching status_bar_height. -->
