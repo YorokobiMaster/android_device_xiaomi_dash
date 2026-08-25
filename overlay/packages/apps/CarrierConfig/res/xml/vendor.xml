@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<!-- Device overlay for packages/apps/CarrierConfig/res/xml/vendor.xml.
+     dash: replicate Xiaomi's signal-bar mapping (miuiLevel) with AOSP levels.
+     HyperOS status bars read SignalStrength.getMiuiLevel(), whose thresholds
+     come from /mi_ext/product/etc/cust_features/cust_features.xml; AOSP reads
+     SignalStrength.getLevel() with much stricter defaults. Same modem reading
+     (e.g. NR ssRsrp=-108) shows 3 bars on HyperOS vs 1 bar on AOSP. Values
+     below are the exact cust thresholds from OS3.0.305.0.WPLCNXM, device-level
+     (no mcc/mnc filter), matching HyperOS for any SIM.
+     CDMA/TDSCDMA thresholds are hardcoded in AOSP and cannot be overridden
+     here; both are legacy on CN networks. -->
+<carrier_config_list>
+    <carrier_config device="dash">
+        <int-array name="5g_nr_ssrsrp_thresholds_int_array" num="4">
+            <item value="-140" />
+            <item value="-120" />
+            <item value="-115" />
+            <item value="-105" />
+        </int-array>
+        <int-array name="lte_rsrp_thresholds_int_array" num="4">
+            <item value="-140" />
+            <item value="-120" />
+            <item value="-115" />
+            <item value="-105" />
+        </int-array>
+        <int-array name="gsm_rssi_thresholds_int_array" num="4">
+            <item value="-113" />
+            <item value="-103" />
+            <item value="-97" />
+            <item value="-91" />
+        </int-array>
+        <!-- HyperOS grades WCDMA by RSCP ({-113,-105,-99,-91}), AOSP defaults
+             to RSSI; switch the measurement to match. -->
+        <string name="wcdma_default_signal_strength_measurement_string">rscp</string>
+        <int-array name="wcdma_rscp_thresholds_int_array" num="4">
+            <item value="-113" />
+            <item value="-105" />
+            <item value="-99" />
+            <item value="-91" />
+        </int-array>
+    </carrier_config>
+</carrier_config_list>
