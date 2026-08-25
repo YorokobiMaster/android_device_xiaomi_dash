@@ -3,6 +3,13 @@
     <!-- Rounded corners content padding -->
     <dimen name="rounded_corner_content_padding">84px</dimen>
 
-    <!-- Keyguard bouncer / PIN pad spacing to avoid UDFPS sensor overlap -->
-    <dimen name="keyguard_security_view_bottom_margin">120dp</dimen>
+    <!-- Physical display pixel pitch in micrometers, used to size the UDFPS icon -->
+    <item name="pixel_pitch" format="float" type="dimen">56.82</item>
+
+    <!-- Physical geometry for the portrait PIN bouncer's UDFPS marker. -->
+    <dimen name="dash_pin_udfps_icon_size">158px</dimen>
+    <dimen name="dash_pin_udfps_bottom_margin">389px</dimen>
+    <dimen name="dash_pin_udfps_keypad_gap">135px</dimen>
+    <dimen name="dash_pin_eca_bottom_margin">36px</dimen>
+
 </resources>
