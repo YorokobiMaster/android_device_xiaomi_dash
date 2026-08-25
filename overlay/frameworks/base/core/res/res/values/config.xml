@@ -35,4 +35,24 @@
 
     <!-- Whether device supports double tap to wake -->
     <bool name="config_supportDoubleTapWake">true</bool>
+
+    <!-- Pickup gesture: advertise support so the upstream Settings switch
+         ("Lift to check phone") appears. There is no standard
+         TYPE_PICK_UP_GESTURE sensor on this device, so DozeSensors'
+         pickup TriggerSensor stays inert; the vendor's pickup Wakeup
+         sensor (type 33171036) is fused into the Fod Wakeup event stream
+         and DashFod applies the DOZE_PICK_UP_GESTURE setting itself when
+         deciding whether a doze-time fod trigger is a raise or a press. -->
+    <bool name="config_dozePulsePickup">true</bool>
+
+    <!-- Screen-off UDFPS: advertise support so the upstream Settings switch
+         appears. The switch writes secure screen_off_udfps_enabled, which
+         DashFod reads. The Doze UDFPS long-press sensor type is deliberately
+         NOT declared: xiaomi.sensor.fod is a SPECIAL_TRIGGER sensor, and
+         AOSP's requestTriggerSensor only accepts ONE_SHOT sensors, so the
+         upstream DozeSensors path can never subscribe to it. Screen-off
+         initiation is device-owned: DashFod subscribes via registerListener
+         and wakes the display, after which the existing keyguard UDFPS flow
+         completes the unlock. -->
+    <bool name="config_screen_off_udfps_enabled">true</bool>
 </resources>
