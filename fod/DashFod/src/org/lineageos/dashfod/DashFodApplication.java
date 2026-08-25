@@ -19,6 +19,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.hardware.biometrics.AuthenticationStateListener;
 import android.hardware.biometrics.BiometricManager;
 import android.hardware.biometrics.BiometricSourceType;
@@ -38,6 +42,8 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 
 import java.util.NoSuchElementException;
@@ -48,6 +54,30 @@ import vendor.xiaomi.hardware.fingerprintextension.IXiaomiFingerprint;
 public final class DashFodApplication extends Application {
     private static final String TAG = "DashFod";
 
+    // xiaomi.sensor.fod, a SPECIAL_TRIGGER wake-up sensor. AOSP's doze
+    // requestTriggerSensor API only accepts ONE_SHOT sensors, so screen-off
+    // UDFPS initiation is handled here: subscribe via registerListener while
+    // the screen is off and wake the display on trigger, letting the existing
+    // keyguard UDFPS flow complete the unlock.
+    private static final int FOD_SENSOR_TYPE = 33171030;
+
+    // xiaomi.sensor.pickup ("pickup  Wakeup"), the vendor pickup sensor.
+    // There is no standard TYPE_PICK_UP_GESTURE sensor on this device; the
+    // vendor fuses raises into the Fod Wakeup stream instead: a raise fires
+    // a pickup event (value 1.0; value 2.0 means put-down) and a fod event
+    // within ~20ms of each other, in either order. A real fingerprint press
+    // fires a fod event with no adjacent pickup event.
+    private static final int PICKUP_SENSOR_TYPE = 33171036;
+
+    // Correlation window for the pickup/fod pairing above. Measured offsets
+    // are ~20ms; the decision delay must exceed the window so a fod event
+    // that precedes its pickup event is still classified correctly.
+    private static final long PICKUP_CORRELATION_WINDOW_NS = 100_000_000L;
+    private static final long FOD_DECISION_DELAY_MS = 150;
+
+    // values[0] reported by the pickup sensor for a raise.
+    private static final float PICKUP_VALUE_RAISE = 1.0f;
+
     private Handler mHandler;
     private FodController mController;
     private KeyguardAuthGate mKeyguardAuthGate;
@@ -55,6 +85,15 @@ public final class DashFodApplication extends Application {
     private BiometricManager mBiometricManager;
     private FingerprintManager mFingerprintManager;
     private PowerManager mPowerManager;
+    private SensorManager mSensorManager;
+    private Sensor mFodSensor;
+    private Sensor mPickupSensor;
+    private SensorEventListener mFodSensorListener;
+    private boolean mFodSensorRegistered;
+    private boolean mPickupSensorRegistered;
+    // All sensor callbacks and the decision runnable run on mHandler, so
+    // this needs no synchronization. Long.MIN_VALUE = no raise observed yet.
+    private long mLastPickupNanos = Long.MIN_VALUE;
     private AuthenticationStateListener mListener;
     private BiometricStateListener mBiometricStateListener;
     private BroadcastReceiver mScreenOnReceiver;
@@ -73,11 +112,29 @@ public final class DashFodApplication extends Application {
         mBiometricManager = getSystemService(BiometricManager.class);
         mFingerprintManager = getSystemService(FingerprintManager.class);
         mPowerManager = getSystemService(PowerManager.class);
+        mSensorManager = getSystemService(SensorManager.class);
+        if (mSensorManager != null) {
+            for (Sensor sensor : mSensorManager.getSensorList(Sensor.TYPE_ALL)) {
+                if (sensor.getType() == FOD_SENSOR_TYPE) {
+                    mFodSensor = sensor;
+                } else if (sensor.getType() == PICKUP_SENSOR_TYPE) {
+                    mPickupSensor = sensor;
+                }
+            }
+        }
+        Log.i(TAG, "fod-sensor available=" + (mFodSensor != null)
+                + " pickup-sensor available=" + (mPickupSensor != null));
         mHandler.post(() -> {
             mController.onStartup();
             registerScreenOnReceiver();
             registerBiometricStateListener();
             rotateAuthenticationStateListener();
+            // The screen broadcasts are not sticky: if this process (re)starts
+            // while the screen is already off, no SCREEN_OFF will arrive, so
+            // sync the sensor registration with the live interactive state.
+            if (mPowerManager != null && !mPowerManager.isInteractive()) {
+                maybeRegisterFodSensor();
+            }
         });
 
         if (mBiometricManager == null) {
@@ -184,16 +241,21 @@ public final class DashFodApplication extends Application {
         mScreenOnReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (!Intent.ACTION_SCREEN_ON.equals(intent.getAction())) return;
-
-                KeyguardAuthGate.Action action = mKeyguardAuthGate.onScreenOn();
-                Log.i(TAG, "screen-on gate=" + mKeyguardAuthGate + " action=" + action);
-                handleGateAction(action);
+                String action = intent.getAction();
+                if (Intent.ACTION_SCREEN_ON.equals(action)) {
+                    unregisterFodSensor();
+                    KeyguardAuthGate.Action gateAction = mKeyguardAuthGate.onScreenOn();
+                    Log.i(TAG, "screen-on gate=" + mKeyguardAuthGate + " action=" + gateAction);
+                    handleGateAction(gateAction);
+                } else if (Intent.ACTION_SCREEN_OFF.equals(action)) {
+                    maybeRegisterFodSensor();
+                }
             }
         };
         try {
-            registerReceiver(mScreenOnReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON),
-                    null, mHandler);
+            IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_ON);
+            filter.addAction(Intent.ACTION_SCREEN_OFF);
+            registerReceiver(mScreenOnReceiver, filter, null, mHandler);
             Log.i(TAG, "screen-on-receiver registered=true");
         } catch (RuntimeException e) {
             mScreenOnReceiver = null;
@@ -201,17 +263,144 @@ public final class DashFodApplication extends Application {
         }
     }
 
-    private void onKeyguardStart() {
-        boolean interactive = false;
+    private void maybeRegisterFodSensor() {
+        if (mSensorManager == null || mFodSensor == null) return;
+        // The pickup toggle cannot be honored independently: the vendor only
+        // emits fod/pickup events while its touch-FOD mode is armed, and
+        // arming also enables doze-time fingerprint auth. Registering for the
+        // pickup gesture while screen-off UDFPS is off would therefore make
+        // the fingerprint switch meaningless, so registration stays gated on
+        // the fingerprint switch alone.
+        if (!isScreenOffUdfpsEnabled()) {
+            Log.i(TAG, "fod-sensor register skipped: setting disabled");
+            return;
+        }
+        if (mFodSensorListener == null) {
+            mFodSensorListener = new SensorEventListener() {
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                    if (event.sensor.getType() == PICKUP_SENSOR_TYPE) {
+                        onPickupSensorEvent(event);
+                    } else {
+                        onFodSensorEvent(event.timestamp);
+                    }
+                }
+
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+            };
+        }
+        if (!mFodSensorRegistered) {
+            mFodSensorRegistered = mSensorManager.registerListener(mFodSensorListener,
+                    mFodSensor, SensorManager.SENSOR_DELAY_NORMAL, mHandler);
+        }
+        if (mPickupSensor != null && !mPickupSensorRegistered) {
+            mPickupSensorRegistered = mSensorManager.registerListener(mFodSensorListener,
+                    mPickupSensor, SensorManager.SENSOR_DELAY_NORMAL, mHandler);
+        }
+        Log.i(TAG, "fod-sensor registered=" + mFodSensorRegistered
+                + " pickup-sensor available=" + (mPickupSensor != null)
+                + " registered=" + mPickupSensorRegistered);
+    }
+
+    private void unregisterFodSensor() {
+        if (!mFodSensorRegistered && !mPickupSensorRegistered) return;
+        if (mFodSensorRegistered) {
+            mSensorManager.unregisterListener(mFodSensorListener, mFodSensor);
+            mFodSensorRegistered = false;
+        }
+        if (mPickupSensorRegistered) {
+            mSensorManager.unregisterListener(mFodSensorListener, mPickupSensor);
+            mPickupSensorRegistered = false;
+        }
+        Log.i(TAG, "fod-sensor unregistered=true");
+    }
+
+    private void onPickupSensorEvent(SensorEvent event) {
+        if (event.values[0] == PICKUP_VALUE_RAISE) {
+            mLastPickupNanos = event.timestamp;
+            Log.i(TAG, "pickup-sensor raise ts=" + event.timestamp);
+        }
+    }
+
+    private void onFodSensorEvent(long timestamp) {
+        boolean interactive = isInteractive();
+        boolean enabled = isScreenOffUdfpsEnabled();
+        Log.i(TAG, "fod-sensor event interactive=" + interactive + " enabled=" + enabled);
+        if (interactive || !enabled) return;
+
+        // The vendor fires the pickup and fod events of a raise in either
+        // order (~20ms apart), so defer the wake decision past the
+        // correlation window to catch a pickup event that arrives second.
+        mHandler.postDelayed(() -> onFodWakeDecision(timestamp), FOD_DECISION_DELAY_MS);
+    }
+
+    private void onFodWakeDecision(long fodNanos) {
+        boolean interactive = isInteractive();
+        boolean enabled = isScreenOffUdfpsEnabled();
+        if (interactive || !enabled) {
+            Log.i(TAG, "fod-sensor decision interactive=" + interactive + " enabled=" + enabled
+                    + " wake=skipped");
+            return;
+        }
+
+        boolean raise = mLastPickupNanos != Long.MIN_VALUE
+                && Math.abs(fodNanos - mLastPickupNanos) <= PICKUP_CORRELATION_WINDOW_NS;
+        if (raise && !isPickupGestureEnabled()) {
+            Log.i(TAG, "fod-sensor decision raise=true wake=suppressed");
+            return;
+        }
+        Log.i(TAG, "fod-sensor decision raise=" + raise);
+
+        // Report raises as WAKE_REASON_LIFT so power stats and SystemUI's
+        // wake model don't attribute them to the fingerprint.
+        int wakeReason = raise
+                ? PowerManager.WAKE_REASON_LIFT : PowerManager.WAKE_REASON_BIOMETRIC;
+        String details = raise
+                ? "org.lineageos.dashfod:pickup" : "org.lineageos.dashfod:screen_off_udfps";
         try {
-            interactive = mPowerManager != null && mPowerManager.isInteractive();
+            mPowerManager.wakeUp(SystemClock.uptimeMillis(), wakeReason, details);
+            Log.i(TAG, "fod-sensor wake=requested reason=" + wakeReason);
+        } catch (RuntimeException e) {
+            Log.e(TAG, "fod-sensor wake=failed", e);
+        }
+    }
+
+    private boolean isInteractive() {
+        try {
+            return mPowerManager != null && mPowerManager.isInteractive();
         } catch (RuntimeException e) {
             Log.e(TAG, "interactive state unavailable", e);
+            return false;
         }
+    }
+
+    private boolean isPickupGestureEnabled() {
+        // Same user-0 limitation as isScreenOffUdfpsEnabled(). The default
+        // mirrors frameworks' config_dozePickupGestureEnabled (true).
+        return Settings.Secure.getInt(getContentResolver(),
+                Settings.Secure.DOZE_PICK_UP_GESTURE, 1) == 1;
+    }
+
+    private boolean isScreenOffUdfpsEnabled() {
+        // NOTE: reads user 0's value. This process cannot resolve the foreground
+        // user (ActivityManager.getCurrentUser() requires MANAGE_USERS-class
+        // permissions), so secondary users follow the primary user's toggle.
+        return Settings.Secure.getInt(getContentResolver(),
+                Settings.Secure.SCREEN_OFF_UNLOCK_UDFPS_ENABLED, 0) == 1;
+    }
+
+    private void onKeyguardStart() {
+        boolean interactive = isInteractive();
+        // The vendor only raises Fod Wakeup events while its touch-FOD mode is
+        // armed by the START sequence. With screen-off UDFPS enabled, a doze-time
+        // keyguard auth start must arm immediately: the sensor event is what wakes
+        // the device, so waiting for interactive deadlocks (no arm -> no event).
+        boolean armAllowed = interactive || isScreenOffUdfpsEnabled();
         KeyguardAuthGate.Action action =
-                mKeyguardAuthGate.onAuthenticationStart(interactive);
-        Log.i(TAG, "keyguard-start interactive=" + interactive + " gate="
-                + mKeyguardAuthGate + " action=" + action);
+                mKeyguardAuthGate.onAuthenticationStart(armAllowed);
+        Log.i(TAG, "keyguard-start interactive=" + interactive + " arm=" + armAllowed
+                + " gate=" + mKeyguardAuthGate + " action=" + action);
         handleGateAction(action);
     }
 
