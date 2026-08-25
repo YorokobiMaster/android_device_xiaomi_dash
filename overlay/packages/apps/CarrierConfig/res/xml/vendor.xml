@@ -11,6 +11,7 @@
      here; both are legacy on CN networks. -->
 <carrier_config_list>
     <carrier_config device="dash">
+        <boolean name="carrier_volte_available_bool" value="true" />
         <int-array name="5g_nr_ssrsrp_thresholds_int_array" num="4">
             <item value="-140" />
             <item value="-120" />
