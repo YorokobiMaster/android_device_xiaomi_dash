@@ -254,10 +254,11 @@ public final class DashFodApplication extends Application {
 
     private void maybeRegisterPickupSensor() {
         if (mSensorManager == null || mPickupSensor == null) return;
-        // Registration stays gated on the screen-off UDFPS switch: whether the
-        // vendor emits pickup events while its touch-FOD mode is disarmed is
-        // unknown, and arming just for the pickup gesture would also enable
-        // doze-time fingerprint auth, voiding the fingerprint switch.
+        // Registration stays gated on the screen-off UDFPS switch. The pickup
+        // sensor itself fires regardless of vendor arming (verified: raises
+        // still wake with AOD off, where doze-time arming is skipped), but
+        // with the fingerprint switch off there is no doze fingerprint UX for
+        // a raise to lead into, so the pickup gesture follows that switch.
         if (!isScreenOffUdfpsEnabled()) {
             Log.i(TAG, "pickup-sensor register skipped: setting disabled");
             return;
@@ -331,16 +332,27 @@ public final class DashFodApplication extends Application {
 
     private void onKeyguardStart() {
         boolean interactive = isInteractive();
-        // The vendor only raises Fod Wakeup events while its touch-FOD mode is
-        // armed by the START sequence. With screen-off UDFPS enabled, a doze-time
-        // keyguard auth start must arm immediately: the sensor event is what wakes
-        // the device, so waiting for interactive deadlocks (no arm -> no event).
-        boolean armAllowed = interactive || isScreenOffUdfpsEnabled();
+        // With screen-off UDFPS enabled, a doze-time keyguard auth start must
+        // arm immediately: waiting for interactive deadlocks (no arm -> the
+        // vendor's touch FOD never delivers finger-down in doze).
+        // Arming in doze is skipped when AOD is off: the armed vendor keeps
+        // its touch FOD alive for a few seconds after the display powers
+        // down, which made real presses unlock from a fully black screen.
+        // Stock ties its fingerprint UX to AOD, so do the same.
+        boolean armAllowed = interactive
+                || (isScreenOffUdfpsEnabled() && isAlwaysOnDisplayEnabled());
         KeyguardAuthGate.Action action =
                 mKeyguardAuthGate.onAuthenticationStart(armAllowed);
         Log.i(TAG, "keyguard-start interactive=" + interactive + " arm=" + armAllowed
                 + " gate=" + mKeyguardAuthGate + " action=" + action);
         handleGateAction(action);
+    }
+
+    private boolean isAlwaysOnDisplayEnabled() {
+        // Same user-0 limitation as isScreenOffUdfpsEnabled(). The default
+        // mirrors frameworks' config_dozeAlwaysOnEnabled (true).
+        return Settings.Secure.getInt(getContentResolver(),
+                Settings.Secure.DOZE_ALWAYS_ON, 1) == 1;
     }
 
     private void handleGateAction(KeyguardAuthGate.Action action) {
