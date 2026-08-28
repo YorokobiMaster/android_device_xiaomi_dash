@@ -332,6 +332,12 @@ public final class DashFodApplication extends Application {
 
     private void onKeyguardStart() {
         boolean interactive = isInteractive();
+        // Never arm with zero enrolled templates: an armed vendor draws its
+        // FOD circle regardless, and on a credential-less (swipe) keyguard
+        // presses on that circle looked like "fingerprint unlocks" even
+        // though nothing could ever authenticate (observed on device after
+        // template loss). HyperOS has no fingerprint UX without enrollment.
+        boolean enrolled = hasEnrolledFingerprints();
         // With screen-off UDFPS enabled, a doze-time keyguard auth start must
         // arm immediately: waiting for interactive deadlocks (no arm -> the
         // vendor's touch FOD never delivers finger-down in doze).
@@ -339,13 +345,37 @@ public final class DashFodApplication extends Application {
         // its touch FOD alive for a few seconds after the display powers
         // down, which made real presses unlock from a fully black screen.
         // Stock ties its fingerprint UX to AOD, so do the same.
-        boolean armAllowed = interactive
-                || (isScreenOffUdfpsEnabled() && isAlwaysOnDisplayEnabled());
+        // Battery saver suppresses AOD without touching DOZE_ALWAYS_ON, so
+        // the setting alone is not proof the AOD is actually visible;
+        // arming on it alone re-opened black-screen unlocks under battery
+        // saver (reproduced on device).
+        boolean powerSave = isPowerSaveMode();
+        boolean armAllowed = enrolled && (interactive
+                || (isScreenOffUdfpsEnabled() && isAlwaysOnDisplayEnabled() && !powerSave));
         KeyguardAuthGate.Action action =
                 mKeyguardAuthGate.onAuthenticationStart(armAllowed);
-        Log.i(TAG, "keyguard-start interactive=" + interactive + " arm=" + armAllowed
+        Log.i(TAG, "keyguard-start interactive=" + interactive + " enrolled=" + enrolled
+                + " powersave=" + powerSave + " arm=" + armAllowed
                 + " gate=" + mKeyguardAuthGate + " action=" + action);
         handleGateAction(action);
+    }
+
+    private boolean isPowerSaveMode() {
+        try {
+            return mPowerManager != null && mPowerManager.isPowerSaveMode();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "power-save state unavailable", e);
+            return false;
+        }
+    }
+
+    private boolean hasEnrolledFingerprints() {
+        try {
+            return mFingerprintManager != null && mFingerprintManager.hasEnrolledTemplates();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "enrolled-template state unavailable", e);
+            return false;
+        }
     }
 
     private boolean isAlwaysOnDisplayEnabled() {

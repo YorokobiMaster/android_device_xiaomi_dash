@@ -8,6 +8,7 @@
     package="org.lineageos.dashfod">
 
     <uses-permission android:name="android.permission.USE_BIOMETRIC_INTERNAL" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
 
     <application
