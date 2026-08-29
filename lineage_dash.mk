@@ -5,6 +5,10 @@
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit_only.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, device/xiaomi/dash/device.mk)
+
+# dash builds are bleeding-edge; brand them as such.
+LINEAGE_BUILDTYPE := RAWHIDE
+
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
 TARGET_FORCE_OTA_PACKAGE := false
