@@ -4,5 +4,6 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <string name="config_face_enroll" translatable="false">io.github.yorokobimaster.dash.faceunlock/.FaceEnrollActivity</string>
+    <!-- Do not route Lineage face enrollment to a private device activity. -->
+    <string name="config_face_enroll" translatable="false"></string>
 </resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<permissions>
+    <!-- Retained MiFace cannot complete enrollment with the Lineage biometric flow. -->
+    <unavailable-feature name="android.hardware.biometrics.face" />
+</permissions>

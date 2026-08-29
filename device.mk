@@ -50,7 +50,6 @@ PRODUCT_PRODUCT_PROPERTIES += \
 PRODUCT_PACKAGES += DashFod
 
 PRODUCT_PACKAGES += \
-    DashFaceEnroll \
     DashFrameworkResOverlay \
     DashRefreshRate \
     DashSettingsOverlay \
@@ -64,6 +63,7 @@ PRODUCT_PACKAGES += \
     dash-ims-telephony-metrics \
     dash-displayfeature-compat \
     dash_powerhint.json \
+    dash-unavailable-features \
     dash-vibrator-adapter \
     init.dash-system_ext.rc \
     libhidltransport \
