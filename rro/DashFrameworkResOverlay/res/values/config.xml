@@ -4,6 +4,11 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
+    <!-- The retained MediaTek overlay sets the legacy doze brightness to 5.
+         Android 16's display stack prefers the float resource, whose platform
+         default is 0.0, so provide the exact float equivalent of 5 here. -->
+    <item name="config_screenBrightnessDozeFloat" format="float" type="dimen">0.015748031</item>
+
     <!-- HyperOS points this at its proprietary AlwaysOnDisplay package, which
          is absent from LineageOS. Product overlays outrank the retained vendor
          overlay, so route doze back to SystemUI. -->

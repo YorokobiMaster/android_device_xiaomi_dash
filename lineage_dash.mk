@@ -11,6 +11,11 @@ LINEAGE_BUILDTYPE := RAWHIDE
 
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
+# Keep this narrow overlay ahead of the Lineage common SystemUI overlay.
+PRODUCT_PACKAGE_OVERLAYS := \
+    device/xiaomi/dash/aov/overlay \
+    $(PRODUCT_PACKAGE_OVERLAYS)
+
 TARGET_FORCE_OTA_PACKAGE := false
 
 PRODUCT_NAME := lineage_dash

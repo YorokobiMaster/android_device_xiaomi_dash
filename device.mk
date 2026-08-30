@@ -50,6 +50,7 @@ PRODUCT_PRODUCT_PROPERTIES += \
 PRODUCT_PACKAGES += DashFod
 
 PRODUCT_PACKAGES += \
+    DashAOV \
     DashFrameworkResOverlay \
     DashRefreshRate \
     DashSettingsOverlay \

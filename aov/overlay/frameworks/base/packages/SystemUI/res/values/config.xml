@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- DashAOV is a platform-signed Doze plugin loaded directly into SystemUI. -->
+    <string-array name="config_pluginAllowlist" translatable="false">
+        <item>com.android.systemui</item>
+        <item>com.android.systemui.plugin.globalactions.wallet</item>
+        <item>org.lineageos.settings.device</item>
+        <item>me.sandai</item>
+    </string-array>
+</resources>
