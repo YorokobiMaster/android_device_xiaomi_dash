@@ -71,10 +71,16 @@ final class RefreshRatePolicy {
         }
 
         String awakeMinRefreshRate = mStore.readMinRefreshRate();
-        if (awakeMinRefreshRate == null) {
+        // A 0.0 floor without an active override is an orphaned doze floor,
+        // not an awake setting; never enshrine it into the recovery record.
+        boolean orphanedDozeRange = isZero(awakeMinRefreshRate);
+        if (awakeMinRefreshRate == null || orphanedDozeRange) {
             awakeMinRefreshRate = DEFAULT_AWAKE_MIN_REFRESH_RATE;
         }
         String awakePeakRefreshRate = mStore.readPeakRefreshRate();
+        if (orphanedDozeRange && isThirty(awakePeakRefreshRate)) {
+            awakePeakRefreshRate = null;
+        }
 
         if (!mStore.beginDozeOverride(awakeMinRefreshRate, awakePeakRefreshRate)) {
             mLogger.log("failed to save awake refresh-rate settings");
@@ -111,6 +117,8 @@ final class RefreshRatePolicy {
                     return;
                 }
                 mLogger.log("initialized awake minimum refresh rate to 60.0");
+            } else if (isZero(currentMinRefreshRate) && !repairOrphanedDozeRange()) {
+                return;
             }
             leaveDozeBrightness();
             return;
@@ -145,6 +153,27 @@ final class RefreshRatePolicy {
         } else {
             mLogger.log("failed to restore awake refresh-rate settings");
         }
+    }
+
+    // A 0.0 floor is only ever written by enterDoze(). If the recovery record
+    // was lost while the installed doze range survived, the range is orphaned;
+    // restore the awake defaults. The peak cap is cleared first so that a
+    // failed floor write is still recognized as orphaned on the retry sync.
+    private boolean repairOrphanedDozeRange() {
+        String currentPeakRefreshRate = mStore.readPeakRefreshRate();
+        if (isThirty(currentPeakRefreshRate)
+                && !mStore.writePeakRefreshRate(null)) {
+            mLogger.log("failed to clear orphaned doze peak refresh rate");
+            return false;
+        }
+        if (!mStore.writeMinRefreshRate(DEFAULT_AWAKE_MIN_REFRESH_RATE)) {
+            mLogger.log("failed to restore awake minimum refresh rate");
+            return false;
+        }
+        mLogger.log("repaired orphaned doze range; restored min="
+                + DEFAULT_AWAKE_MIN_REFRESH_RATE + " peak="
+                + (isThirty(currentPeakRefreshRate) ? "null" : currentPeakRefreshRate));
+        return true;
     }
 
     private void leaveDozeBrightness() {

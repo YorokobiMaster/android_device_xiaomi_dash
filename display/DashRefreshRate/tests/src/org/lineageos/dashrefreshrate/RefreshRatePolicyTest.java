@@ -180,6 +180,73 @@ public final class RefreshRatePolicyTest {
         assertFalse(store.overrideActive);
     }
 
+    @Test
+    public void lostRecoveryRecordWithDozeRangeIsRepaired() {
+        FakeStore store = new FakeStore("0.0");
+        store.peakRefreshRate = "30.0";
+        store.dozeBrightness = RefreshRatePolicy.DOZE_BRIGHTNESS_LBM;
+
+        policy(store).onDisplayState(RefreshRatePolicy.DisplayState.AWAKE);
+
+        assertEquals("60.0", store.minRefreshRate);
+        assertNull(store.peakRefreshRate);
+        assertEquals(RefreshRatePolicy.DOZE_BRIGHTNESS_NORMAL, store.dozeBrightness);
+        assertFalse(store.overrideActive);
+    }
+
+    @Test
+    public void lostRecoveryRecordPreservesExternalPeak() {
+        FakeStore store = new FakeStore("0.0");
+        store.peakRefreshRate = "90.0";
+
+        policy(store).onDisplayState(RefreshRatePolicy.DisplayState.AWAKE);
+
+        assertEquals("60.0", store.minRefreshRate);
+        assertEquals("90.0", store.peakRefreshRate);
+        assertFalse(store.overrideActive);
+    }
+
+    @Test
+    public void failedOrphanRepairIsRecognizedOnRetry() {
+        FakeStore store = new FakeStore("0.0");
+        store.peakRefreshRate = "30.0";
+        store.dozeBrightness = RefreshRatePolicy.DOZE_BRIGHTNESS_LBM;
+        store.failNextMinWrite = true;
+        RefreshRatePolicy policy = policy(store);
+
+        policy.onDisplayState(RefreshRatePolicy.DisplayState.AWAKE);
+
+        assertEquals("0.0", store.minRefreshRate);
+        assertNull(store.peakRefreshRate);
+        assertEquals(RefreshRatePolicy.DOZE_BRIGHTNESS_LBM, store.dozeBrightness);
+
+        policy.onDisplayState(RefreshRatePolicy.DisplayState.AWAKE);
+
+        assertEquals("60.0", store.minRefreshRate);
+        assertEquals(RefreshRatePolicy.DOZE_BRIGHTNESS_NORMAL, store.dozeBrightness);
+    }
+
+    @Test
+    public void dozeWithOrphanedRangeDoesNotPoisonRecoveryRecord() {
+        FakeStore store = new FakeStore("0.0");
+        store.peakRefreshRate = "30.0";
+        RefreshRatePolicy policy = policy(store);
+
+        policy.onDisplayState(RefreshRatePolicy.DisplayState.DOZE);
+
+        assertEquals("0.0", store.minRefreshRate);
+        assertEquals("30.0", store.peakRefreshRate);
+        assertEquals("60.0", store.savedAwakeMinRefreshRate);
+        assertNull(store.savedAwakePeakRefreshRate);
+        assertTrue(store.overrideActive);
+
+        policy.onDisplayState(RefreshRatePolicy.DisplayState.AWAKE);
+
+        assertEquals("60.0", store.minRefreshRate);
+        assertNull(store.peakRefreshRate);
+        assertFalse(store.overrideActive);
+    }
+
     private static RefreshRatePolicy policy(FakeStore store) {
         return new RefreshRatePolicy(store, message -> {});
     }
