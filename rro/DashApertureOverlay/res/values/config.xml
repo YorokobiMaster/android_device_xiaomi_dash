@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Expose the 60 fps modes validated on dash for the rear and front cameras. -->
+    <string-array name="config_additionalVideoConfigurations">
+        <item>0</item> <item>sd|hd|fhd|uhd</item> <item>60</item>
+        <item>1</item> <item>sd|hd|fhd</item> <item>60</item>
+    </string-array>
+</resources>
