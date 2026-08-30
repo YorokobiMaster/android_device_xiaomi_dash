@@ -4,7 +4,7 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="io.github.yorokobimaster.overlay.dash.settings">
+    package="me.sandai.overlay.dash.settings">
 
     <overlay
         android:isStatic="true"

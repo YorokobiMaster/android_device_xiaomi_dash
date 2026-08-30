@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.lineageos.dashfod;
+package me.sandai.dashfod;
 
 import static android.hardware.biometrics.BiometricRequestConstants.REASON_AUTH_BP;
 import static android.hardware.biometrics.BiometricRequestConstants.REASON_AUTH_KEYGUARD;
@@ -344,7 +344,7 @@ public final class DashFodApplication extends Application {
 
         // HyperOS parity: raises wake directly from the pickup sensor.
         if (isInteractive() || !isPickupGestureEnabled()) return;
-        wake(PowerManager.WAKE_REASON_LIFT, "org.lineageos.dashfod:pickup");
+        wake(PowerManager.WAKE_REASON_LIFT, "me.sandai.dashfod:pickup");
     }
 
     private void wake(int reason, String details) {

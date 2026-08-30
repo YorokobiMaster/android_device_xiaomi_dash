@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.lineageos.dashfod;
+package me.sandai.dashfod;
 
 final class KeyguardAuthGate {
     enum Action {

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.lineageos.dashrefreshrate;
+package me.sandai.dashrefreshrate;
 
 final class RefreshRatePolicy {
     static final String DEFAULT_AWAKE_MIN_REFRESH_RATE = "60.0";

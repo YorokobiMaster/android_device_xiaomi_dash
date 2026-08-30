@@ -4,7 +4,7 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.lineageos.overlay.dash.frameworksbase">
+    package="me.sandai.overlay.dash.frameworksbase">
 
     <overlay
         android:isStatic="true"

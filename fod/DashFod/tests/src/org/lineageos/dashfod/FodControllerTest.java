@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.lineageos.dashfod;
+package me.sandai.dashfod;
 
 import static org.junit.Assert.assertEquals;
-import static org.lineageos.dashfod.FodController.Operation.ENROLLMENT;
-import static org.lineageos.dashfod.FodController.Operation.GENERIC_AUTH;
-import static org.lineageos.dashfod.FodController.Operation.KEYGUARD_AUTH;
+import static me.sandai.dashfod.FodController.Operation.ENROLLMENT;
+import static me.sandai.dashfod.FodController.Operation.GENERIC_AUTH;
+import static me.sandai.dashfod.FodController.Operation.KEYGUARD_AUTH;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

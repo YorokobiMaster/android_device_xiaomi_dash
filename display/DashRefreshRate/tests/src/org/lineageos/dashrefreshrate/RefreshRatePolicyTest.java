@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.lineageos.dashrefreshrate;
+package me.sandai.dashrefreshrate;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

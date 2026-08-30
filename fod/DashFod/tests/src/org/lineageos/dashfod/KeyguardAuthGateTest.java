@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.lineageos.dashfod;
+package me.sandai.dashfod;
 
 import static org.junit.Assert.assertEquals;
-import static org.lineageos.dashfod.KeyguardAuthGate.Action.NONE;
-import static org.lineageos.dashfod.KeyguardAuthGate.Action.START;
-import static org.lineageos.dashfod.KeyguardAuthGate.Action.STOP;
+import static me.sandai.dashfod.KeyguardAuthGate.Action.NONE;
+import static me.sandai.dashfod.KeyguardAuthGate.Action.START;
+import static me.sandai.dashfod.KeyguardAuthGate.Action.STOP;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
