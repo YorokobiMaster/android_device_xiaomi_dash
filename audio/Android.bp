@@ -1,0 +1,31 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+cc_library_shared {
+    name: "libaudiopolicymanagercustom",
+    defaults: [
+        "latest_android_media_audio_common_types_cpp_shared",
+    ],
+    srcs: ["DashAudioPolicyManager.cpp"],
+    include_dirs: [
+        "frameworks/av/services/audiopolicy",
+        "frameworks/av/services/audiopolicy/managerdefault",
+    ],
+    shared_libs: [
+        "audioclient-types-aidl-cpp",
+        "libaudiofoundation",
+        "libaudiopolicymanagerdefault",
+        "libaudiopolicy",
+        "libaudiopolicycomponents",
+        "libutils",
+    ],
+    header_libs: [
+        "libaudiopolicycommon",
+        "libaudiopolicyengine_interface_headers",
+        "libaudiopolicymanager_interface_headers",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+}

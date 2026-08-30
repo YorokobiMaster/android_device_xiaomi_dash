@@ -47,6 +47,9 @@ PRODUCT_PRODUCT_PROPERTIES += \
     bluetooth.profile.pbap.server.enabled=true \
     bluetooth.profile.sap.server.enabled=true
 
+PRODUCT_SYSTEM_EXT_PROPERTIES += \
+    ro.audio.ihaladaptervendorextension_enabled=true
+
 PRODUCT_PACKAGES += DashFod
 
 PRODUCT_PACKAGES += \
@@ -59,6 +62,7 @@ PRODUCT_PACKAGES += \
     ImsService \
     MtkGbaService \
     android.hardware.power-service.lineage-libperfmgr \
+    dash-audio-parameter-parser \
     dash-ims-appcompat \
     mediatek-common \
     mediatek-ims-base \
@@ -68,6 +72,7 @@ PRODUCT_PACKAGES += \
     dash-unavailable-features \
     dash-vibrator-adapter \
     init.dash-system_ext.rc \
+    libaudiopolicymanagercustom \
     libhidltransport \
     libmtk_vt_wrapper \
     libvcodec_cap \

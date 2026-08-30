@@ -1,0 +1,31 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+cc_binary {
+    name: "dash-audio-parameter-parser",
+    system_ext_specific: true,
+    relative_install_path: "hw",
+
+    defaults: [
+        "latest_android_hardware_audio_core_ndk_shared",
+    ],
+
+    srcs: [
+        "DashAudioParameterParser.cpp",
+        "main.cpp",
+    ],
+
+    shared_libs: [
+        "av-audio-types-aidl-ndk",
+        "libbase",
+        "libbinder_ndk",
+    ],
+
+    init_rc: ["dash-audio-parameter-parser.rc"],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+    ],
+}

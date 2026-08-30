@@ -1,0 +1,9 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+service dash_audio_parameter_parser /system_ext/bin/hw/dash-audio-parameter-parser
+    class core
+    user audioserver
+    group media
+    ioprio rt 4
+    task_profiles ProcessCapacityHigh HighPerformance
