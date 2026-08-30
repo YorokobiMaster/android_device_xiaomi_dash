@@ -11,6 +11,9 @@ LINEAGE_BUILDTYPE := RAWHIDE
 
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
+# MindTheGapps, trimmed to Play services + Play Store (vendor/gapps, baklava branch).
+$(call inherit-product, vendor/gapps/arm64/arm64-vendor.mk)
+
 # Keep this narrow overlay ahead of the Lineage common SystemUI overlay.
 PRODUCT_PACKAGE_OVERLAYS := \
     device/xiaomi/dash/aov/overlay \
