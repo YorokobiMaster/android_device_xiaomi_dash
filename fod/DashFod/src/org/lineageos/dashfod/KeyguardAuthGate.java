@@ -56,6 +56,17 @@ final class KeyguardAuthGate {
         return maybeStart();
     }
 
+    Action onScreenOff() {
+        if (mPhase == Phase.IDLE) return Action.NONE;
+
+        mWakeQualified = false;
+        if (mPhase == Phase.DISPATCHED) {
+            mPhase = Phase.PENDING;
+            return Action.STOP;
+        }
+        return Action.NONE;
+    }
+
     void onTerminal() {
         clear();
     }

@@ -35,6 +35,7 @@ import android.hardware.biometrics.events.AuthenticationHelpInfo;
 import android.hardware.biometrics.events.AuthenticationStartedInfo;
 import android.hardware.biometrics.events.AuthenticationStoppedInfo;
 import android.hardware.biometrics.events.AuthenticationSucceededInfo;
+import android.hardware.display.DisplayManager;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -45,6 +46,7 @@ import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.Display;
 
 import java.util.NoSuchElementException;
 import java.util.function.Consumer;
@@ -81,6 +83,7 @@ public final class DashFodApplication extends Application {
     private BiometricManager mBiometricManager;
     private FingerprintManager mFingerprintManager;
     private PowerManager mPowerManager;
+    private DisplayManager mDisplayManager;
     private SensorManager mSensorManager;
     private Sensor mPickupSensor;
     private SensorEventListener mPickupSensorListener;
@@ -88,6 +91,7 @@ public final class DashFodApplication extends Application {
     private AuthenticationStateListener mListener;
     private BiometricStateListener mBiometricStateListener;
     private BroadcastReceiver mScreenOnReceiver;
+    private DisplayManager.DisplayListener mDisplayListener;
     private volatile int mListenerGeneration;
 
     @Override
@@ -103,6 +107,7 @@ public final class DashFodApplication extends Application {
         mBiometricManager = getSystemService(BiometricManager.class);
         mFingerprintManager = getSystemService(FingerprintManager.class);
         mPowerManager = getSystemService(PowerManager.class);
+        mDisplayManager = getSystemService(DisplayManager.class);
         mSensorManager = getSystemService(SensorManager.class);
         if (mSensorManager != null) {
             for (Sensor sensor : mSensorManager.getSensorList(Sensor.TYPE_ALL)) {
@@ -116,6 +121,7 @@ public final class DashFodApplication extends Application {
         mHandler.post(() -> {
             mController.onStartup();
             registerScreenOnReceiver();
+            registerDisplayListener();
             registerBiometricStateListener();
             rotateAuthenticationStateListener();
             // The screen broadcasts are not sticky: if this process (re)starts
@@ -252,6 +258,50 @@ public final class DashFodApplication extends Application {
         }
     }
 
+    private void registerDisplayListener() {
+        if (mDisplayManager == null) {
+            Log.e(TAG, "DisplayManager unavailable; display listener not registered");
+            return;
+        }
+        mDisplayListener = new DisplayManager.DisplayListener() {
+            @Override
+            public void onDisplayAdded(int displayId) {}
+
+            @Override
+            public void onDisplayRemoved(int displayId) {}
+
+            @Override
+            public void onDisplayChanged(int displayId) {
+                if (displayId != Display.DEFAULT_DISPLAY) return;
+
+                int displayState = getDefaultDisplayState();
+                boolean visible = isDisplayVisible(displayState);
+                boolean interactive = isInteractive();
+                boolean dozeArmAllowed = visible && !interactive
+                        && isScreenOffUdfpsEnabled() && hasEnrolledFingerprints();
+                KeyguardAuthGate.Action action;
+                if (interactive || dozeArmAllowed) {
+                    action = mKeyguardAuthGate.onScreenOn();
+                } else if (!visible) {
+                    action = mKeyguardAuthGate.onScreenOff();
+                } else {
+                    action = KeyguardAuthGate.Action.NONE;
+                }
+                Log.i(TAG, "display-change state=" + Display.stateToString(displayState)
+                        + " interactive=" + interactive + " doze-arm=" + dozeArmAllowed
+                        + " gate=" + mKeyguardAuthGate + " action=" + action);
+                handleGateAction(action);
+            }
+        };
+        try {
+            mDisplayManager.registerDisplayListener(mDisplayListener, mHandler);
+            Log.i(TAG, "display-listener registered=true");
+        } catch (RuntimeException e) {
+            mDisplayListener = null;
+            Log.e(TAG, "display-listener registered=false", e);
+        }
+    }
+
     private void maybeRegisterPickupSensor() {
         if (mSensorManager == null || mPickupSensor == null) return;
         // Registration stays gated on the screen-off UDFPS switch. The pickup
@@ -338,35 +388,36 @@ public final class DashFodApplication extends Application {
         // though nothing could ever authenticate (observed on device after
         // template loss). HyperOS has no fingerprint UX without enrollment.
         boolean enrolled = hasEnrolledFingerprints();
-        // With screen-off UDFPS enabled, a doze-time keyguard auth start must
-        // arm immediately: waiting for interactive deadlocks (no arm -> the
-        // vendor's touch FOD never delivers finger-down in doze).
-        // Arming in doze is skipped when AOD is off: the armed vendor keeps
-        // its touch FOD alive for a few seconds after the display powers
-        // down, which made real presses unlock from a fully black screen.
-        // Stock ties its fingerprint UX to AOD, so do the same.
-        // Battery saver suppresses AOD without touching DOZE_ALWAYS_ON, so
-        // the setting alone is not proof the AOD is actually visible;
-        // arming on it alone re-opened black-screen unlocks under battery
-        // saver (reproduced on device).
-        boolean powerSave = isPowerSaveMode();
+        // Arm screen-off authentication only while the default display is
+        // actually visible. Smart AOD pulses leave DOZE_ALWAYS_ON disabled,
+        // and battery saver can hide AOD without changing that setting, so
+        // the setting is not a valid proxy for panel state.
+        int displayState = getDefaultDisplayState();
+        boolean displayVisible = isDisplayVisible(displayState);
         boolean armAllowed = enrolled && (interactive
-                || (isScreenOffUdfpsEnabled() && isAlwaysOnDisplayEnabled() && !powerSave));
+                || (isScreenOffUdfpsEnabled() && displayVisible));
         KeyguardAuthGate.Action action =
                 mKeyguardAuthGate.onAuthenticationStart(armAllowed);
         Log.i(TAG, "keyguard-start interactive=" + interactive + " enrolled=" + enrolled
-                + " powersave=" + powerSave + " arm=" + armAllowed
+                + " display=" + Display.stateToString(displayState) + " arm=" + armAllowed
                 + " gate=" + mKeyguardAuthGate + " action=" + action);
         handleGateAction(action);
     }
 
-    private boolean isPowerSaveMode() {
+    private int getDefaultDisplayState() {
         try {
-            return mPowerManager != null && mPowerManager.isPowerSaveMode();
+            Display display = mDisplayManager != null
+                    ? mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY) : null;
+            return display != null ? display.getState() : Display.STATE_UNKNOWN;
         } catch (RuntimeException e) {
-            Log.e(TAG, "power-save state unavailable", e);
-            return false;
+            Log.e(TAG, "display state unavailable", e);
+            return Display.STATE_UNKNOWN;
         }
+    }
+
+    private static boolean isDisplayVisible(int state) {
+        return state == Display.STATE_ON || state == Display.STATE_DOZE
+                || state == Display.STATE_DOZE_SUSPEND;
     }
 
     private boolean hasEnrolledFingerprints() {
@@ -376,13 +427,6 @@ public final class DashFodApplication extends Application {
             Log.e(TAG, "enrolled-template state unavailable", e);
             return false;
         }
-    }
-
-    private boolean isAlwaysOnDisplayEnabled() {
-        // Same user-0 limitation as isScreenOffUdfpsEnabled(). The default
-        // mirrors frameworks' config_dozeAlwaysOnEnabled (true).
-        return Settings.Secure.getInt(getContentResolver(),
-                Settings.Secure.DOZE_ALWAYS_ON, 1) == 1;
     }
 
     private void handleGateAction(KeyguardAuthGate.Action action) {

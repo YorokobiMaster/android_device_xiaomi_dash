@@ -87,6 +87,20 @@ public final class KeyguardAuthGateTest {
     }
 
     @Test
+    public void screenOffStopsAndNextVisiblePulseRearms() {
+        KeyguardAuthGate gate = new KeyguardAuthGate();
+        assertEquals(NONE, gate.onBiometricState(true));
+        assertEquals(NONE, gate.onAuthenticationStart(false));
+        assertEquals(START, gate.onScreenOn());
+
+        assertEquals(STOP, gate.onScreenOff());
+        assertEquals("phase=PENDING biometric=true wake=false", gate.toString());
+        assertEquals(NONE, gate.onScreenOff());
+        assertEquals(START, gate.onScreenOn());
+        assertEquals("phase=DISPATCHED biometric=true wake=true", gate.toString());
+    }
+
+    @Test
     public void terminalAndResetClearWithoutReplay() {
         KeyguardAuthGate gate = new KeyguardAuthGate();
         assertEquals(NONE, gate.onBiometricState(true));
