@@ -21,8 +21,8 @@ android_app {
 java_test_host {
     name: "DashFodHostTest",
     srcs: [
-        "src/org/lineageos/dashfod/FodController.java",
-        "src/org/lineageos/dashfod/KeyguardAuthGate.java",
+        "src/me/sandai/dashfod/FodController.java",
+        "src/me/sandai/dashfod/KeyguardAuthGate.java",
         "tests/src/**/*.java",
     ],
     test_suites: ["general-tests"],

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package me.sandai;
+package me.sandai.dashaov;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -27,7 +27,7 @@ public final class DashAovPlugin implements DozeServicePlugin {
     private static final String SYSTEM_UI_PACKAGE = "com.android.systemui";
     private static final String DOZE_PULSE_ACTION = "com.android.systemui.doze.pulse";
     private static final ComponentName BRIDGE_COMPONENT = new ComponentName(
-            "me.sandai", "me.sandai.DashAovBridgeService");
+            "me.sandai.dashaov", "me.sandai.dashaov.DashAovBridgeService");
     private static final long AOV_REARM_MS = 7_000;
     private static final long DISPLAY_RECHECK_MS = 500;
 

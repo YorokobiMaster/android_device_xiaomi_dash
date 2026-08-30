@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package me.sandai;
+package me.sandai.dashaov;
 
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
