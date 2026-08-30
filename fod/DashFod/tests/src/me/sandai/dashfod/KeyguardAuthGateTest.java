@@ -101,6 +101,25 @@ public final class KeyguardAuthGateTest {
     }
 
     @Test
+    public void visibleDozeRecoversMissedAuthenticationStateOnlyWhileLocked() {
+        KeyguardAuthGate gate = new KeyguardAuthGate();
+        assertEquals(NONE, gate.onVisibleDoze(false));
+        assertEquals("phase=IDLE biometric=false wake=false", gate.toString());
+
+        assertEquals(START, gate.onVisibleDoze(true));
+        assertEquals("phase=DISPATCHED biometric=true wake=true", gate.toString());
+        assertEquals(NONE, gate.onVisibleDoze(true));
+    }
+
+    @Test
+    public void visibleDozeCompletesPendingStartWithMissedBiometricState() {
+        KeyguardAuthGate gate = new KeyguardAuthGate();
+        assertEquals(NONE, gate.onAuthenticationStart(false));
+        assertEquals(START, gate.onVisibleDoze(true));
+        assertEquals("phase=DISPATCHED biometric=true wake=true", gate.toString());
+    }
+
+    @Test
     public void terminalAndResetClearWithoutReplay() {
         KeyguardAuthGate gate = new KeyguardAuthGate();
         assertEquals(NONE, gate.onBiometricState(true));

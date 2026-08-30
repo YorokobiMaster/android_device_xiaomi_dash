@@ -56,6 +56,21 @@ final class KeyguardAuthGate {
         return maybeStart();
     }
 
+    Action onVisibleDoze(boolean deviceLocked) {
+        if (!deviceLocked || mPhase == Phase.DISPATCHED) return Action.NONE;
+
+        // Neither biometric listener replays an authentication already in
+        // progress when this persistent process restarts. A visible Doze
+        // pulse on a still-locked device is sufficient to restore that lost
+        // keyguard context; a later framework state edge remains authoritative.
+        if (mPhase == Phase.IDLE) {
+            mPhase = Phase.PENDING;
+        }
+        mBiometricQualified = true;
+        mWakeQualified = true;
+        return maybeStart();
+    }
+
     Action onScreenOff() {
         if (mPhase == Phase.IDLE) return Action.NONE;
 
