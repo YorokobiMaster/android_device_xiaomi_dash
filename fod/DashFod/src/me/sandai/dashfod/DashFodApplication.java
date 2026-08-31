@@ -288,16 +288,23 @@ public final class DashFodApplication extends Application {
         // template loss). HyperOS has no fingerprint UX without enrollment.
         boolean enrolled = hasEnrolledFingerprints();
         int displayState = getDefaultDisplayState();
-        // A non-interactive authentication start happens while the panel can
-        // still report ON during screen-off transition. Leave it pending;
-        // the display listener arms only after a real visible Doze state.
-        boolean armAllowed = enrolled && interactive;
+        // Standard AOD keeps the panel visible from the start of keyguard
+        // authentication, before DisplayManager reports a state change.
+        // Smart AOD pulses remain pending until the display listener observes
+        // their actual visible Doze state.
+        boolean armAllowed = enrolled && (interactive
+                || (isScreenOffUdfpsEnabled() && isAlwaysOnDisplayEnabled()));
         KeyguardAuthGate.Action action =
                 mKeyguardAuthGate.onAuthenticationStart(armAllowed);
         Log.i(TAG, "keyguard-start interactive=" + interactive + " enrolled=" + enrolled
                 + " display=" + Display.stateToString(displayState) + " arm=" + armAllowed
                 + " gate=" + mKeyguardAuthGate + " action=" + action);
         handleGateAction(action);
+    }
+
+    private boolean isAlwaysOnDisplayEnabled() {
+        return Settings.Secure.getInt(getContentResolver(),
+                Settings.Secure.DOZE_ALWAYS_ON, 0) == 1;
     }
 
     private int getDefaultDisplayState() {

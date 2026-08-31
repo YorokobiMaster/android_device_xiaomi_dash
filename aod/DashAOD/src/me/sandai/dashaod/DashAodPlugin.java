@@ -15,6 +15,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.hardware.SensorPrivacyManager;
 import android.hardware.display.DisplayManager;
+import android.hardware.fingerprint.FingerprintManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -28,13 +29,16 @@ import com.android.systemui.plugins.annotations.Requires;
 import me.sandai.dashaov.IDashAovBridge;
 import me.sandai.dashaov.IDashAovCallback;
 
-/** Owns dash-specific Doze triggers; AOV and pickup only supply events. */
+/** Owns dash-specific Doze triggers; AOV and vendor sensors only supply events. */
 @Requires(target = DozeServicePlugin.class, version = DozeServicePlugin.VERSION)
 public final class DashAodPlugin implements DozeServicePlugin, SensorEventListener {
     private static final String TAG = "DashAOD";
     private static final String DOZE_PULSE_ACTION = "com.android.systemui.doze.pulse";
     private static final int PICKUP_SENSOR_TYPE = 33171036;
+    private static final int FOD_MOTION_SENSOR_TYPE = 33171030;
     private static final float PICKUP_RAISE = 1.0f;
+    private static final float FOD_MOTION_MOVE = 1.0f;
+    private static final float FOD_MOTION_PUT_UP = 3.0f;
     private static final long AOV_REARM_MS = 7_000;
     private static final long DISPLAY_RECHECK_MS = 500;
     private static final ComponentName AOV_BRIDGE = new ComponentName(
@@ -45,10 +49,13 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
     private Handler mHandler;
     private SensorManager mSensorManager;
     private SensorPrivacyManager mPrivacyManager;
+    private FingerprintManager mFingerprintManager;
     private Sensor mPickupSensor;
+    private Sensor mFodMotionSensor;
     private IDashAovBridge mAovBridge;
     private boolean mDreaming;
     private boolean mPickupRegistered;
+    private boolean mFodMotionRegistered;
     private boolean mAovBound;
 
     private final IDashAovCallback mAovCallback = new IDashAovCallback.Stub() {
@@ -118,11 +125,13 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
         mHandler = new Handler(sysuiContext.getMainLooper());
         mSensorManager = sysuiContext.getSystemService(SensorManager.class);
         mPrivacyManager = sysuiContext.getSystemService(SensorPrivacyManager.class);
+        mFingerprintManager = sysuiContext.getSystemService(FingerprintManager.class);
         if (mSensorManager != null) {
             for (Sensor sensor : mSensorManager.getSensorList(Sensor.TYPE_ALL)) {
                 if (sensor.getType() == PICKUP_SENSOR_TYPE) {
                     mPickupSensor = sensor;
-                    break;
+                } else if (sensor.getType() == FOD_MOTION_SENSOR_TYPE) {
+                    mFodMotionSensor = sensor;
                 }
             }
         }
@@ -140,8 +149,10 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
                     SensorPrivacyManager.Sensors.CAMERA, mPrivacyListener);
         }
         mPrivacyManager = null;
+        mFingerprintManager = null;
         mSensorManager = null;
         mPickupSensor = null;
+        mFodMotionSensor = null;
         mHandler = null;
         mPluginContext = null;
         mSysuiContext = null;
@@ -157,6 +168,7 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
         if (mDreaming) return;
         mDreaming = true;
         registerPickup();
+        registerFodMotion();
         bindAov();
         scheduleAovStart();
     }
@@ -170,17 +182,24 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
             mHandler.removeCallbacks(mRearmAov);
         }
         unregisterPickup();
+        unregisterFodMotion();
         stopAov();
         unbindAov();
     }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (!mDreaming || event.sensor != mPickupSensor || event.values.length == 0
-                || event.values[0] != PICKUP_RAISE) return;
-        if (Settings.Secure.getInt(mSysuiContext.getContentResolver(),
-                Settings.Secure.DOZE_PICK_UP_GESTURE, 1) != 0) {
-            pulse("pickup");
+        if (!mDreaming || event.values.length == 0) return;
+        float value = event.values[0];
+        if (event.sensor == mPickupSensor && value == PICKUP_RAISE) {
+            if (Settings.Secure.getInt(mSysuiContext.getContentResolver(),
+                    Settings.Secure.DOZE_PICK_UP_GESTURE, 1) != 0) {
+                pulse("pickup");
+            }
+        } else if (event.sensor == mFodMotionSensor
+                && (value == FOD_MOTION_MOVE || value == FOD_MOTION_PUT_UP)
+                && isScreenOffUdfpsAvailable()) {
+            pulse("fod-motion");
         }
     }
 
@@ -199,6 +218,29 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
         if (!mPickupRegistered) return;
         mSensorManager.unregisterListener(this, mPickupSensor);
         mPickupRegistered = false;
+    }
+
+    private void registerFodMotion() {
+        if (!mFodMotionRegistered && mSensorManager != null && mFodMotionSensor != null) {
+            mFodMotionRegistered = mSensorManager.registerListener(
+                    this, mFodMotionSensor, SensorManager.SENSOR_DELAY_NORMAL, mHandler);
+            Log.i(TAG, "fod-motion registered=" + mFodMotionRegistered);
+        }
+    }
+
+    private void unregisterFodMotion() {
+        if (!mFodMotionRegistered) return;
+        mSensorManager.unregisterListener(this, mFodMotionSensor);
+        mFodMotionRegistered = false;
+    }
+
+    private boolean isScreenOffUdfpsAvailable() {
+        boolean defaultOn = mSysuiContext.getResources().getBoolean(
+                com.android.internal.R.bool.config_screen_off_udfps_default_on);
+        boolean enabled = Settings.Secure.getInt(mSysuiContext.getContentResolver(),
+                Settings.Secure.SCREEN_OFF_UNLOCK_UDFPS_ENABLED, defaultOn ? 1 : 0) == 1;
+        return enabled && mFingerprintManager != null
+                && mFingerprintManager.hasEnrolledTemplates();
     }
 
     private void onAovPresence() {
