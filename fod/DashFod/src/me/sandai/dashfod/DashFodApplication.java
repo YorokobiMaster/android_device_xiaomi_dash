@@ -65,6 +65,7 @@ public final class DashFodApplication extends Application {
     private BroadcastReceiver mScreenOnReceiver;
     private DisplayManager.DisplayListener mDisplayListener;
     private volatile int mListenerGeneration;
+    private Boolean mKeyguardFodAvailable;
 
     @Override
     public void onCreate() {
@@ -83,6 +84,7 @@ public final class DashFodApplication extends Application {
         mDisplayManager = getSystemService(DisplayManager.class);
         mHandler.post(() -> {
             mController.onStartup();
+            syncKeyguardFodAvailability("startup");
             registerScreenOnReceiver();
             registerDisplayListener();
             registerBiometricStateListener();
@@ -170,6 +172,7 @@ public final class DashFodApplication extends Application {
                         Log.i(TAG, "biometric-state generation=" + generation + " dropped=true");
                         return;
                     }
+                    syncKeyguardFodAvailability("biometric-state");
                     boolean keyguardAuth = state == STATE_KEYGUARD_AUTH;
                     KeyguardAuthGate.Action action =
                             mKeyguardAuthGate.onBiometricState(keyguardAuth);
@@ -284,14 +287,11 @@ public final class DashFodApplication extends Application {
         // though nothing could ever authenticate (observed on device after
         // template loss). HyperOS has no fingerprint UX without enrollment.
         boolean enrolled = hasEnrolledFingerprints();
-        // Arm screen-off authentication only while the default display is
-        // actually visible. Smart AOD pulses leave DOZE_ALWAYS_ON disabled,
-        // and battery saver can hide AOD without changing that setting, so
-        // the setting is not a valid proxy for panel state.
         int displayState = getDefaultDisplayState();
-        boolean displayVisible = isDisplayVisible(displayState);
-        boolean armAllowed = enrolled && (interactive
-                || (isScreenOffUdfpsEnabled() && displayVisible));
+        // A non-interactive authentication start happens while the panel can
+        // still report ON during screen-off transition. Leave it pending;
+        // the display listener arms only after a real visible Doze state.
+        boolean armAllowed = enrolled && interactive;
         KeyguardAuthGate.Action action =
                 mKeyguardAuthGate.onAuthenticationStart(armAllowed);
         Log.i(TAG, "keyguard-start interactive=" + interactive + " enrolled=" + enrolled
@@ -342,6 +342,21 @@ public final class DashFodApplication extends Application {
         }
     }
 
+    private void syncKeyguardFodAvailability(String reason) {
+        boolean available = hasEnrolledFingerprints();
+        if (mKeyguardFodAvailable != null && mKeyguardFodAvailable == available) return;
+
+        if (!mClient.isConnected() && !mClient.connect()) {
+            Log.e(TAG, "keyguard-fod reason=" + reason + " available=" + available
+                    + " result=connect-failed");
+            return;
+        }
+        boolean success = mClient.extCmd(8, available ? 1 : 0);
+        Log.i(TAG, "keyguard-fod reason=" + reason + " available=" + available
+                + " result=" + success);
+        if (success) mKeyguardFodAvailable = available;
+    }
+
     private void clearKeyguardGate(String reason) {
         mKeyguardAuthGate.onTerminal();
         Log.i(TAG, "gate clear=" + reason + " state=" + mKeyguardAuthGate);
@@ -379,10 +394,12 @@ public final class DashFodApplication extends Application {
 
     private void onVendorDeath() {
         mKeyguardAuthGate.reset();
+        mKeyguardFodAvailable = null;
         int invalidatedGeneration = ++mListenerGeneration;
         Log.i(TAG, "gate reset=vendor-death state=" + mKeyguardAuthGate
                 + " listener-generation=" + invalidatedGeneration + " invalidated=true");
         mController.onVendorDeath();
+        syncKeyguardFodAvailability("vendor-death");
         rotateAuthenticationStateListener();
     }
 
