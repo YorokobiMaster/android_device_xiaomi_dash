@@ -54,6 +54,7 @@ PRODUCT_PACKAGES += DashFod
 
 PRODUCT_PACKAGES += \
     DashApertureOverlay \
+    DashAOD \
     DashAOV \
     DashFrameworkResOverlay \
     DashRefreshRate \
@@ -77,6 +78,7 @@ PRODUCT_PACKAGES += \
     libmtk_vt_wrapper \
     libvcodec_cap \
     libvcodec_capenc \
+    privapp-permissions-dash-system-ext \
     privapp-permissions-mediatek-ims \
     sysconfig-com.mediatek.ims \
     vendor.mediatek.hardware.videotelephony-V1-ndk \

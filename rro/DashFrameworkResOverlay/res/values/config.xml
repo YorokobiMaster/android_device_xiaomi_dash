@@ -4,6 +4,10 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
+    <!-- Smart display is the dash default; regular always-on display remains
+         available as an explicit alternative. -->
+    <bool name="config_dozeAlwaysOnEnabled">false</bool>
+
     <!-- The retained MediaTek overlay sets the legacy doze brightness to 5.
          Android 16's display stack prefers the float resource, whose platform
          default is 0.0, so provide the exact float equivalent of 5 here. -->

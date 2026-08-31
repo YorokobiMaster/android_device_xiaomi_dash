@@ -7,7 +7,6 @@ package me.sandai.dashaov;
 
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
-import android.widget.Toast;
 
 public final class SmartAodTileService extends TileService {
     @Override
@@ -25,12 +24,7 @@ public final class SmartAodTileService extends TileService {
     }
 
     private void toggle() {
-        boolean enabled = SmartAodSettings.isEnabled(getContentResolver());
-        if (!enabled && SmartAodSettings.isAlwaysOnEnabled(getContentResolver())) {
-            Toast.makeText(this, R.string.tile_always_on_conflict, Toast.LENGTH_LONG).show();
-            updateTile();
-            return;
-        }
+        boolean enabled = SmartAodSettings.isActive(getContentResolver());
         SmartAodSettings.setEnabled(getContentResolver(), !enabled);
         updateTile();
     }
@@ -41,7 +35,7 @@ public final class SmartAodTileService extends TileService {
             return;
         }
 
-        boolean enabled = SmartAodSettings.isEnabled(getContentResolver());
+        boolean enabled = SmartAodSettings.isActive(getContentResolver());
         tile.setState(enabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
         if (enabled) {
             tile.setSubtitle(getString(R.string.tile_enabled));

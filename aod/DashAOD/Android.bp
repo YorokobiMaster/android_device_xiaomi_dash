@@ -6,13 +6,12 @@ package {
 }
 
 android_app {
-    name: "DashAOV",
+    name: "DashAOD",
     srcs: [
         "src/**/*.aidl",
         "src/**/*.java",
     ],
-    resource_dirs: ["res"],
-    static_libs: ["SettingsLibTile"],
+    libs: ["SystemUIPluginLib"],
     platform_apis: true,
     certificate: "platform",
     privileged: true,

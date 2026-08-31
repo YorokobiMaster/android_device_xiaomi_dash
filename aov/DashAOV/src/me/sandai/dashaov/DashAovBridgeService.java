@@ -168,8 +168,7 @@ public final class DashAovBridgeService extends Service {
 
     private boolean isEligible() {
         return mClientCallback != null
-                && SmartAodSettings.isEnabled(getContentResolver())
-                && !SmartAodSettings.isAlwaysOnEnabled(getContentResolver());
+                && SmartAodSettings.isActive(getContentResolver());
     }
 
     private void deliverPresence() {

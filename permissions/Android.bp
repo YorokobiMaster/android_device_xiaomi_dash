@@ -10,6 +10,14 @@ prebuilt_etc {
 }
 
 prebuilt_etc {
+    name: "privapp-permissions-dash-system-ext",
+    src: "privapp-permissions-dash-system-ext.xml",
+    filename_from_src: true,
+    sub_dir: "permissions",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
     name: "dash-unavailable-features",
     src: "dash-unavailable-features.xml",
     filename_from_src: true,

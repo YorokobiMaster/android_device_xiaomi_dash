@@ -4,12 +4,10 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <string name="app_name">Dash AOV</string>
-    <string name="settings_title">Smart AOD</string>
-    <string name="settings_summary">Show the AOD briefly when you look at the screen</string>
-    <string name="settings_switch_title">Look to show AOD</string>
-    <string name="tile_label">Smart AOD</string>
-    <string name="tile_always_on_conflict">Turn off Always-on display first</string>
-    <string name="tile_enabled">Shows AOD when you look at the screen</string>
+    <string name="app_name">Smart display</string>
+    <string name="smart_display_title">Smart display</string>
+    <string name="smart_display_summary">When someone looks at the screen</string>
+    <string name="tile_label">Smart display</string>
+    <string name="tile_enabled">When someone looks at the screen</string>
     <string name="tile_disabled">Off</string>
 </resources>

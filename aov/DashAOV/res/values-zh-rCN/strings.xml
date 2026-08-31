@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">智能显示</string>
+    <string name="smart_display_title">智能显示</string>
+    <string name="smart_display_summary">检测到人眼注视时显示</string>
+    <string name="tile_label">智能显示</string>
+    <string name="tile_enabled">检测到人眼注视时显示</string>
+    <string name="tile_disabled">关闭</string>
+</resources>
