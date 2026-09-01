@@ -15,8 +15,6 @@ import android.os.RemoteException;
 import android.provider.Settings;
 import android.util.Log;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
 /** Keeps all vendor AOV Binder access outside the SystemUI process. */
 public final class DashAovBridgeService extends Service {
     private static final String TAG = "DashAOV.Bridge";
@@ -28,7 +26,7 @@ public final class DashAovBridgeService extends Service {
     private PowerManager.WakeLock mCallbackWakeLock;
     private IDashAovCallback mClientCallback;
     private MtkAovClient mAovClient;
-    private final AtomicBoolean mPresencePending = new AtomicBoolean();
+    private boolean mPresencePending;
 
     private final IBinder.DeathRecipient mClientDeathRecipient = () -> {
         if (mWorker != null) mWorker.post(this::clearClient);
@@ -102,7 +100,7 @@ public final class DashAovBridgeService extends Service {
     private void setClientAndStart(IDashAovCallback callback) {
         IBinder oldBinder = mClientCallback == null ? null : mClientCallback.asBinder();
         if (oldBinder == callback.asBinder()) {
-            mPresencePending.set(false);
+            mPresencePending = false;
             reconcile();
             return;
         }
@@ -117,7 +115,7 @@ public final class DashAovBridgeService extends Service {
             clearClient();
             return;
         }
-        mPresencePending.set(false);
+        mPresencePending = false;
         reconcile();
     }
 
@@ -128,7 +126,7 @@ public final class DashAovBridgeService extends Service {
             mClientCallback.asBinder().unlinkToDeath(mClientDeathRecipient, 0);
             mClientCallback = null;
         }
-        mPresencePending.set(false);
+        mPresencePending = false;
         stopAov();
     }
 
@@ -142,20 +140,20 @@ public final class DashAovBridgeService extends Service {
             return;
         }
 
-        MtkAovClient client = new MtkAovClient(new MtkAovClient.Listener() {
+        MtkAovClient client = new MtkAovClient(mWorker, new MtkAovClient.Listener() {
             @Override
-            public void onPresenceDetected() {
-                if (mPresencePending.compareAndSet(false, true)) {
-                    mWorker.post(DashAovBridgeService.this::deliverPresence);
-                }
+            public void onPresenceDetected(MtkAovClient source) {
+                if (mAovClient != source || mPresencePending) return;
+                mPresencePending = true;
+                deliverPresence();
             }
 
             @Override
-            public void onServiceDied() {
-                mWorker.post(() -> {
-                    mAovClient = null;
-                    if (isEligible()) mWorker.postDelayed(mRetry, RETRY_DELAY_MS);
-                });
+            public void onServiceDied(MtkAovClient source) {
+                if (mAovClient != source) return;
+                mAovClient = null;
+                mWorker.removeCallbacks(mRetry);
+                if (isEligible()) mWorker.postDelayed(mRetry, RETRY_DELAY_MS);
             }
         });
         if (client.start()) {
@@ -175,7 +173,7 @@ public final class DashAovBridgeService extends Service {
         stopAov();
         IDashAovCallback callback = mClientCallback;
         if (callback == null || !isEligible()) {
-            mPresencePending.set(false);
+            mPresencePending = false;
             return;
         }
         mCallbackWakeLock.acquire(CALLBACK_WAKELOCK_MS);

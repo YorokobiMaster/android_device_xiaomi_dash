@@ -6,6 +6,7 @@
 package me.sandai.dashaov;
 
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.IInterface;
 import android.os.Parcel;
@@ -16,8 +17,8 @@ import android.util.Log;
 /** Minimal client for the frozen MediaTek IAovService v3 contract shipped on dash. */
 final class MtkAovClient implements AutoCloseable {
     interface Listener {
-        void onPresenceDetected();
-        void onServiceDied();
+        void onPresenceDetected(MtkAovClient client);
+        void onServiceDied(MtkAovClient client);
     }
 
     private static final String TAG = "DashAOV.MtkClient";
@@ -45,20 +46,23 @@ final class MtkAovClient implements AutoCloseable {
     private static final int START_ATTEMPTS = 6;
     private static final long START_RETRY_DELAY_MS = 100;
 
+    private final Handler mWorker;
     private final Listener mListener;
     private final AovCallback mCallback;
-    private final IBinder.DeathRecipient mDeathRecipient = this::handleServiceDeath;
 
     private IBinder mService;
+    private IBinder.DeathRecipient mDeathRecipient;
     private boolean mConnected;
     private boolean mStarted;
 
-    MtkAovClient(Listener listener) {
+    MtkAovClient(Handler worker, Listener listener) {
+        mWorker = worker;
         mListener = listener;
-        mCallback = new AovCallback(this::handleEvent);
+        mCallback = new AovCallback(this::enqueueEvent);
     }
 
     boolean start() {
+        ensureWorkerThread();
         if (mStarted) {
             return true;
         }
@@ -70,9 +74,12 @@ final class MtkAovClient implements AutoCloseable {
         }
 
         try {
-            service.linkToDeath(mDeathRecipient, 0);
+            IBinder.DeathRecipient deathRecipient = () ->
+                    mWorker.post(() -> handleServiceDeath(service));
+            service.linkToDeath(deathRecipient, 0);
             mService = service;
-            int connectResult = transactInt(TRANSACTION_CONNECT, data ->
+            mDeathRecipient = deathRecipient;
+            int connectResult = transactInt(service, TRANSACTION_CONNECT, data ->
                     data.writeStrongBinder(mCallback.asBinder()));
             if (connectResult != 0) {
                 Log.e(TAG, "IAovService connect failed: " + connectResult);
@@ -92,7 +99,7 @@ final class MtkAovClient implements AutoCloseable {
 
             int result = -1;
             for (int attempt = 0; attempt < START_ATTEMPTS && result != 0; attempt++) {
-                result = transactInt(TRANSACTION_START, data ->
+                result = transactInt(service, TRANSACTION_START, data ->
                         data.writeTypedObject(params, 0));
                 if (result != 0 && attempt + 1 < START_ATTEMPTS) {
                     Thread.sleep(START_RETRY_DELAY_MS);
@@ -119,6 +126,7 @@ final class MtkAovClient implements AutoCloseable {
 
     @Override
     public void close() {
+        ensureWorkerThread();
         IBinder service = mService;
         if (service == null) {
             mConnected = false;
@@ -126,28 +134,35 @@ final class MtkAovClient implements AutoCloseable {
             return;
         }
 
-        if (mStarted) {
+        IBinder.DeathRecipient deathRecipient = mDeathRecipient;
+        boolean wasConnected = mConnected;
+        boolean wasStarted = mStarted;
+        mService = null;
+        mDeathRecipient = null;
+        mConnected = false;
+        mStarted = false;
+
+        if (wasStarted) {
             try {
-                transactVoid(TRANSACTION_STOP, null);
+                transactVoid(service, TRANSACTION_STOP, null);
             } catch (RemoteException e) {
                 Log.w(TAG, "IAovService stop failed", e);
             }
         }
-        if (mConnected) {
+        if (wasConnected) {
             try {
-                transactVoid(TRANSACTION_DISCONNECT, null);
+                transactVoid(service, TRANSACTION_DISCONNECT, null);
             } catch (RemoteException e) {
                 Log.w(TAG, "IAovService disconnect failed", e);
             }
         }
-        service.unlinkToDeath(mDeathRecipient, 0);
-        mService = null;
-        mConnected = false;
-        mStarted = false;
+        if (deathRecipient != null) {
+            service.unlinkToDeath(deathRecipient, 0);
+        }
     }
 
-    private void handleEvent(AovEvent event) {
-        if (!mStarted || event == null || event.results == null) {
+    private void enqueueEvent(AovEvent event) {
+        if (event == null || event.results == null) {
             return;
         }
         for (AovResult result : event.results) {
@@ -156,28 +171,40 @@ final class MtkAovClient implements AutoCloseable {
             }
             byte[] output = result.data.getByteVector();
             if (output != null && output.length > 24 && Byte.toUnsignedInt(output[24]) == 1) {
-                Log.i(TAG, "AOV gaze detected");
-                mListener.onPresenceDetected();
+                mWorker.post(this::handlePresenceDetected);
                 return;
             }
         }
     }
 
-    private void handleServiceDeath() {
-        Log.w(TAG, "IAovService died");
-        mService = null;
-        mConnected = false;
-        mStarted = false;
-        mListener.onServiceDied();
+    private void handlePresenceDetected() {
+        if (!mStarted) {
+            return;
+        }
+        Log.i(TAG, "AOV gaze detected");
+        mListener.onPresenceDetected(this);
     }
 
-    private int transactInt(int code, ParcelWriter writer) throws RemoteException {
+    private void handleServiceDeath(IBinder service) {
+        if (mService != service) {
+            return;
+        }
+        Log.w(TAG, "IAovService died");
+        mService = null;
+        mDeathRecipient = null;
+        mConnected = false;
+        mStarted = false;
+        mListener.onServiceDied(this);
+    }
+
+    private int transactInt(IBinder service, int code, ParcelWriter writer)
+            throws RemoteException {
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
         try {
             data.writeInterfaceToken(SERVICE_DESCRIPTOR);
             if (writer != null) writer.write(data);
-            if (!mService.transact(code, data, reply, 0)) {
+            if (!service.transact(code, data, reply, 0)) {
                 throw new RemoteException("IAovService transaction " + code + " is unavailable");
             }
             reply.readException();
@@ -188,19 +215,26 @@ final class MtkAovClient implements AutoCloseable {
         }
     }
 
-    private void transactVoid(int code, ParcelWriter writer) throws RemoteException {
+    private void transactVoid(IBinder service, int code, ParcelWriter writer)
+            throws RemoteException {
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
         try {
             data.writeInterfaceToken(SERVICE_DESCRIPTOR);
             if (writer != null) writer.write(data);
-            if (!mService.transact(code, data, reply, 0)) {
+            if (!service.transact(code, data, reply, 0)) {
                 throw new RemoteException("IAovService transaction " + code + " is unavailable");
             }
             reply.readException();
         } finally {
             reply.recycle();
             data.recycle();
+        }
+    }
+
+    private void ensureWorkerThread() {
+        if (mWorker.getLooper().getThread() != Thread.currentThread()) {
+            throw new IllegalStateException("MtkAovClient accessed outside the DashAOV worker");
         }
     }
 
