@@ -5,6 +5,7 @@
 
 package me.sandai.dashaod;
 
+import android.app.DreamManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -143,7 +144,7 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
 
     @Override
     public void onDestroy() {
-        onDreamingStopped();
+        leaveDreaming("destroy");
         if (mPrivacyManager != null) {
             mPrivacyManager.removeSensorPrivacyListener(
                     SensorPrivacyManager.Sensors.CAMERA, mPrivacyListener);
@@ -160,12 +161,45 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
 
     @Override
     public void setDozeRequester(RequestDoze requester) {
-        if (!mDreaming) onDreamingStarted();
+        reconcileDreamingState("plugin-connected");
     }
 
     @Override
     public void onDreamingStarted() {
+        enterDreaming("callback");
+    }
+
+    @Override
+    public void onDreamingStopped() {
+        leaveDreaming("callback");
+    }
+
+    private void reconcileDreamingState(String reason) {
+        if (mSysuiContext == null) {
+            Log.w(TAG, "Unable to reconcile Dream state: SystemUI context is unavailable");
+            return;
+        }
+
+        DreamManager dreamManager = mSysuiContext.getSystemService(DreamManager.class);
+        if (dreamManager == null) {
+            Log.w(TAG, "Unable to reconcile Dream state: DreamManager is unavailable");
+            return;
+        }
+
+        try {
+            if (dreamManager.isDreaming()) {
+                enterDreaming(reason);
+            } else {
+                leaveDreaming(reason);
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Unable to reconcile Dream state", e);
+        }
+    }
+
+    private void enterDreaming(String reason) {
         if (mDreaming) return;
+        Log.i(TAG, "Entering Dream state: " + reason);
         mDreaming = true;
         registerPickup();
         registerFodMotion();
@@ -173,9 +207,9 @@ public final class DashAodPlugin implements DozeServicePlugin, SensorEventListen
         scheduleAovStart();
     }
 
-    @Override
-    public void onDreamingStopped() {
+    private void leaveDreaming(String reason) {
         if (!mDreaming) return;
+        Log.i(TAG, "Leaving Dream state: " + reason);
         mDreaming = false;
         if (mHandler != null) {
             mHandler.removeCallbacks(mStartAov);
