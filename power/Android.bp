@@ -2,41 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
 soong_namespace {
-    imports: [
-        "hardware/google/interfaces",
-        "hardware/google/pixel",
-        "hardware/lineage/interfaces/power-libperfmgr",
-    ],
 }
 
-cc_binary {
-    name: "android.hardware.power-service.lineage-libperfmgr",
-    defaults: ["power-libperfmgr-service-defaults"],
-    init_rc: ["android.hardware.power-service.lineage-libperfmgr.dash.rc"],
-    vintf_fragments: ["//device/xiaomi/dash/vintf:android.hardware.power-service.lineage.dash.xml"],
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_app {
+    name: "DashDt2w",
+    srcs: ["src/**/*.java"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
     system_ext_specific: true,
-    cflags: ["-DPOWER_LIBPERFMGR_SYSTEM_EXT"],
-    exclude_shared_libs: [
-        "libperfmgr",
-        "pixel-power-ext-V1-ndk",
-    ],
-    static_libs: [
-        "libperfmgr",
-        "pixel-power-ext-V1-ndk",
-    ],
+    jni_libs: ["libdashdt2w_jni"],
+    required: ["libdashdt2w_jni"],
 }
 
-cc_library_static {
-    name: "libperfmgr-ext-dash",
-    defaults: ["android.hardware.power-ndk_shared"],
-    system_ext_specific: true,
-    srcs: ["PowerModeExtension.cpp"],
-    shared_libs: ["libbase"],
-}
-
-prebuilt_etc {
-    name: "dash_powerhint.json",
-    src: "powerhint.json",
-    filename: "powerhint.json",
+cc_library_shared {
+    name: "libdashdt2w_jni",
+    srcs: ["jni/DashDt2wJni.cpp"],
+    shared_libs: ["liblog"],
+    header_libs: ["jni_headers"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
     system_ext_specific: true,
 }

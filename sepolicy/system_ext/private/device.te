@@ -1,10 +1,6 @@
 # Copyright (C) 2026 @YorokobiMaster
 # SPDX-License-Identifier: Apache-2.0
 
-# Mirror the retained vendor policy type so system_ext can grant the native
-# Power HAL access to the existing Xiaomi touch misc device.
-type touchfeature_device, dev_type;
-
 # Reuse the retained vendor policy type for Xiaomi's display feature cdev.
 # AOSP ueventd creates the node at /dev/disp_feature; init only needs to expose
 # the stock pathname and adjust its stock ownership and mode before HAL start.

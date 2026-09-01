@@ -26,12 +26,11 @@ DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := \
 PRODUCT_SOONG_NAMESPACES += \
     $(DEVICE_PATH) \
     $(DEVICE_PATH)/power \
-    $(DEVICE_PATH)/vintf \
-    hardware/lineage/interfaces/power-libperfmgr \
     vendor/xiaomi/dash
 
 # Bluetooth profiles exposed by the stock phone product.
 PRODUCT_PRODUCT_PROPERTIES += \
+    bluetooth.a2dp.mtk_offload_coex.queue_count=5 \
     bluetooth.profile.a2dp.source.enabled=true \
     bluetooth.profile.asha.central.enabled=true \
     bluetooth.profile.avrcp.target.enabled=true \
@@ -57,20 +56,19 @@ PRODUCT_PACKAGES += \
     DashAOD \
     DashAOV \
     DashCharging \
+    DashDt2w \
     DashFrameworkResOverlay \
     DashRefreshRate \
     DashSettingsOverlay \
     DashWifiOverlay \
     ImsService \
     MtkGbaService \
-    android.hardware.power-service.lineage-libperfmgr \
     dash-audio-parameter-parser \
     dash-ims-appcompat \
     mediatek-common \
     mediatek-ims-base \
     dash-ims-telephony-metrics \
     dash-displayfeature-compat \
-    dash_powerhint.json \
     dash-unavailable-features \
     dash-vibrator-adapter \
     init.dash-system_ext.rc \
