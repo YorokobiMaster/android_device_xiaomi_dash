@@ -5,6 +5,9 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <permissions>
+    <privapp-permissions package="me.sandai.dashaod">
+        <permission name="android.permission.READ_DREAM_STATE"/>
+    </privapp-permissions>
     <privapp-permissions package="me.sandai.dashaov">
         <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
     </privapp-permissions>
