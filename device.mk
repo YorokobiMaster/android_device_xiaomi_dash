@@ -56,6 +56,7 @@ PRODUCT_PACKAGES += \
     DashApertureOverlay \
     DashAOD \
     DashAOV \
+    DashCharging \
     DashFrameworkResOverlay \
     DashRefreshRate \
     DashSettingsOverlay \

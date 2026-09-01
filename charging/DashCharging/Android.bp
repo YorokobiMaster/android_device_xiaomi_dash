@@ -1,0 +1,20 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_app {
+    name: "DashCharging",
+    srcs: ["src/**/*.java"],
+    resource_dirs: ["res"],
+    static_libs: ["SettingsLibTile"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    optimize: {
+        enabled: false,
+    },
+}

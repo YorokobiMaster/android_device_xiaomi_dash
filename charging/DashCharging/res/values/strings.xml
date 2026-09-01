@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">Bypass charging</string>
+    <string name="bypass_charging_title">Bypass charging</string>
+    <string name="bypass_charging_summary" formatted="false">Limits battery charging to reduce heat; active only during wired charging at 40–90%</string>
+    <string name="bypass_charging_error">Couldn’t update bypass charging</string>
+    <string name="tile_label">Bypass charging</string>
+    <string name="tile_enabled">On</string>
+    <string name="tile_disabled">Off</string>
+    <string name="tile_unavailable">Unavailable</string>
+</resources>

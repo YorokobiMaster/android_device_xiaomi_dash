@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">旁路充电</string>
+    <string name="bypass_charging_title">旁路充电</string>
+    <string name="bypass_charging_summary" formatted="false">限制电池充电以降低发热，仅在电量 40%–90% 且有线充电时生效</string>
+    <string name="bypass_charging_error">无法更新旁路充电状态</string>
+    <string name="tile_label">旁路充电</string>
+    <string name="tile_enabled">已开启</string>
+    <string name="tile_disabled">已关闭</string>
+    <string name="tile_unavailable">不可用</string>
+</resources>
