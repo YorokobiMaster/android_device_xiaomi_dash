@@ -1,12 +1,34 @@
 # Copyright (C) 2026 @YorokobiMaster
 # SPDX-License-Identifier: Apache-2.0
 
-# Stock mi_ext overlays /product/app and hides Lineage Messaging with a
-# zero-length placeholder. Keep the remaining mi_ext overlays, which carry
-# vendor permissions and resource overlays, but restore Lineage ownership of
-# the product app directory before PackageManager scans it.
+# The retained stock fstab mounts mi_ext directories over Lineage-owned
+# framework partitions. Remove every mi_ext-backed overlay before
+# PackageManager scans them, then detach the source partition so later stock
+# init actions cannot recreate those mounts.
 on post-fs
+    umount /system_ext/etc/permissions
+    umount /system/etc/permissions
+    umount /system/etc/sysconfig
+    umount /system/priv-app
+    umount /system/app
+    umount /product/etc/security
+    umount /product/etc/preferred-apps
+    umount /product/etc/precust_theme
+    umount /product/etc/permissions
+    umount /product/etc/sysconfig
+    umount /product/data-app
+    umount /product/opcust
+    umount /product/media
+    umount /product/framework
+    umount /product/bin
+    umount /product/lib64
+    umount /product/lib
+    umount /product/priv-app
     umount /product/app
+    umount /product/overlay
+    umount /product/usr
+    umount /mi_ext
+    umount /mnt/vendor/mi_ext
 
 # The retained Xiaomi displayfeature HAL opens this stock ueventd path, while
 # the AOSP ueventd configuration exposes the same mi_display cdev at

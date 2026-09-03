@@ -68,6 +68,8 @@ PRODUCT_PACKAGES += \
     DashFrameworkResOverlay \
     DashRefreshRate \
     DashSettingsOverlay \
+    DashTelecommOverlay \
+    DashTelephonyOverlay \
     DashWifiOverlay \
     ImsService \
     MtkGbaService \

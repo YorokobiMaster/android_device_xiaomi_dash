@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Preserve GMS number verification previously supplied by mi_ext. -->
+    <string name="platform_number_verification_package" translatable="false">com.google.android.gms</string>
+</resources>
