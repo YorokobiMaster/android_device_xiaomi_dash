@@ -3,6 +3,11 @@
     <!-- Rounded corners content padding -->
     <dimen name="rounded_corner_content_padding">84px</dimen>
 
+    <!-- HyperOS 3 gesture-handle geometry. -->
+    <dimen name="navigation_handle_radius">1.849976dp</dimen>
+    <dimen name="navigation_handle_bottom">6dp</dimen>
+    <dimen name="navigation_home_handle_width">152dp</dimen>
+
     <!-- Physical display pixel pitch in micrometers, used to size the UDFPS icon -->
     <item name="pixel_pitch" format="float" type="dimen">56.82</item>
 

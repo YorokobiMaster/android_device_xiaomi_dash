@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 GitHub @YorokobiMaster -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <!-- HyperOS 3 uses a longer gesture handle in landscape. -->
+    <dimen name="navigation_home_handle_width">242dp</dimen>
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 GitHub @YorokobiMaster -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <!-- BP4A delegates the phone gesture handle to Launcher3QuickStep. -->
+    <dimen name="navigation_home_handle_width">152dp</dimen>
+    <dimen name="taskbar_stashed_small_screen">152dp</dimen>
+    <dimen name="taskbar_stashed_handle_height">3.699952dp</dimen>
+</resources>
