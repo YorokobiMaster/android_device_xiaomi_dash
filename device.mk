@@ -49,6 +49,14 @@ PRODUCT_PRODUCT_PROPERTIES += \
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.audio.ihaladaptervendorextension_enabled=true
 
+# HyperOS fills ro.miui.build.region at runtime; nothing in this build did,
+# so the static vendor overlay FrameworkResOverlay_dashCN (which requires
+# region=cn) never activated and the GL one won by default. Its only payload
+# is power_profile.xml, and GL declares battery.capacity 8500 instead of the
+# CN model's 9000, which broke battery drain estimates.
+PRODUCT_SYSTEM_PROPERTIES += \
+    ro.miui.build.region=cn
+
 PRODUCT_PACKAGES += DashFod
 
 PRODUCT_PACKAGES += \
