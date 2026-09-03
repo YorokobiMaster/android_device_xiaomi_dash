@@ -9,4 +9,11 @@
 
     <!-- Expose low, medium, and high vibration intensity controls. -->
     <integer name="config_vibration_supported_intensity_levels">3</integer>
+
+    <!-- Show battery cycle count in Settings. The fuel gauge exposes
+         /sys/class/power_supply/battery/cycle_count on stock firmware;
+         whether it surfaces depends on the health HAL forwarding it to
+         BatteryManager.EXTRA_CYCLE_COUNT, and the preference degrades
+         to "not available" if not. -->
+    <bool name="config_show_battery_cycle_count">true</bool>
 </resources>
