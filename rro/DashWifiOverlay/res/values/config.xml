@@ -6,4 +6,7 @@
 <resources>
     <!-- Expose the individual 2.4 GHz and 5 GHz hotspot choices in Settings. -->
     <bool name="config_wifiBridgedSoftApSupported">false</bool>
+
+    <!-- BatteryStats accounts Wi-Fi controller time against a single wall clock. -->
+    <bool name="config_wifiLinkLayerAllRadiosStatsAggregationEnabled">false</bool>
 </resources>
