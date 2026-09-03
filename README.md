@@ -15,7 +15,6 @@ The Redmi Turbo 5 Max is a ~~performance flagship powered by a nerfed previous-g
 ### Untested
 
 * Thermal / power management
-* Fast charging
 * Reverse wired charging
 * VoWiFi
 
@@ -32,6 +31,7 @@ The Redmi Turbo 5 Max is a ~~performance flagship powered by a nerfed previous-g
 * Always-on Display
 * Fingerprint
 * USB OTG
+* Fast charging
 * Suspend / wake
   * Lift-to-wake
   * Gaze-to-wake
