@@ -47,4 +47,50 @@
          and the Settings toggle both resolve an unset secure key from this,
          and DashFod falls back to it too. -->
     <bool name="config_screen_off_udfps_default_on">true</bool>
+
+    <!-- Auto-brightness response tuning. The retained MediaTek
+         FrameworkResOverlayExt supplies the stock 17-level curve
+         (128..18432 lux -> backlight 8..255), but nothing set debounce
+         or lux hysteresis, so the AOSP controller fell back to 4s/8s
+         debounce with empty thresholds: slow to react, yet jumpy on
+         sensor noise. Threshold levels below reuse the octave steps of
+         that curve. -->
+    <integer name="config_autoBrightnessBrighteningLightDebounce">1000</integer>
+    <integer name="config_autoBrightnessDarkeningLightDebounce">2000</integer>
+
+    <integer-array name="config_ambientThresholdLevels" translatable="false">
+        <item>128</item>
+        <item>256</item>
+        <item>512</item>
+        <item>1024</item>
+        <item>2048</item>
+        <item>4096</item>
+        <item>8192</item>
+    </integer-array>
+
+    <!-- Hysteresis constraints in tenths of a percent (1000 = 100%).
+         Brightening: eager in the dark, lazy near HBM territory. -->
+    <integer-array name="config_ambientBrighteningThresholds" translatable="false">
+        <item>100</item>
+        <item>200</item>
+        <item>300</item>
+        <item>300</item>
+        <item>300</item>
+        <item>400</item>
+        <item>600</item>
+        <item>1000</item>
+    </integer-array>
+
+    <!-- Darkening: below 256 lux ambient light must drop 80% before
+         the screen dims; above that, 50%. This is the restraint. -->
+    <integer-array name="config_ambientDarkeningThresholds" translatable="false">
+        <item>800</item>
+        <item>800</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+    </integer-array>
 </resources>
