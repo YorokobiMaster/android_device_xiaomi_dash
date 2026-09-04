@@ -1,0 +1,61 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+// Binder-free state machine. Host-supported so Gate 2 host tests link only
+// this library; the AIDL runtimes stay in the device-only modules below.
+cc_library_static {
+    name: "libdash_livedisplay_core",
+    host_supported: true,
+    srcs: ["DashLiveDisplayCore.cpp"],
+    export_include_dirs: ["."],
+    shared_libs: ["libbase"],
+}
+
+cc_library_static {
+    name: "libdash_livedisplay",
+    srcs: [
+        "DashDisplayModes.cpp",
+        "XiaomiDisplayFeatureClient.cpp",
+    ],
+    export_include_dirs: ["."],
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+    ],
+    static_libs: [
+        "libdash_livedisplay_core",
+        "vendor.lineage.livedisplay-V1-ndk",
+        "vendor.xiaomi.hardware.displayfeature_aidl-V2-ndk",
+    ],
+}
+
+cc_binary {
+    name: "dash-livedisplay",
+    srcs: ["service.cpp"],
+    static_libs: [
+        "libdash_livedisplay",
+        "libdash_livedisplay_core",
+        "vendor.lineage.livedisplay-V1-ndk",
+        "vendor.xiaomi.hardware.displayfeature_aidl-V2-ndk",
+    ],
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+    ],
+    system_ext_specific: true,
+    relative_install_path: "hw",
+    init_rc: ["dash-livedisplay.rc"],
+    vintf_fragments: ["dash-livedisplay.xml"],
+}
+
+cc_test_host {
+    name: "DashLiveDisplayHostTest",
+    srcs: ["tests/DashDisplayModesTest.cpp"],
+    static_libs: [
+        "libdash_livedisplay_core",
+        "libgtest",
+        "libgtest_main",
+    ],
+    shared_libs: ["libbase"],
+    test_suites: ["general-tests"],
+}

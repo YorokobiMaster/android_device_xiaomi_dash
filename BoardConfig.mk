@@ -53,6 +53,13 @@ BOARD_SYSTEM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 BOARD_VENDOR_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 BOARD_ODM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 
+# Vendor sepolicy comes from the retained stock vendor image; nothing here
+# compiles BOARD_VENDOR_SEPOLICY_DIRS. Pin the flag explicitly: the
+# BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE line above would otherwise defeat the
+# auto-detection in device/lineage/sepolicy/common/sepolicy.mk and silently
+# drop lineage's dynamic/ policy (hal_*_service types, service_contexts).
+TARGET_USES_PREBUILT_VENDOR_SEPOLICY := true
+
 # Image bounds sized to fit the stock HyperOS LP group. Fixed bounds keep the
 # requested inode counts; build_image otherwise trims dynamically sized ext4
 # images back to roughly the installed inode usage.

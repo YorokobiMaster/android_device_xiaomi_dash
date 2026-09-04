@@ -85,6 +85,7 @@ PRODUCT_PACKAGES += \
     mediatek-ims-base \
     dash-ims-telephony-metrics \
     dash-displayfeature-compat \
+    dash-livedisplay \
     dash-unavailable-features \
     dash-vibrator-adapter \
     init.dash-system_ext.rc \

@@ -1,0 +1,33 @@
+/*
+ * Copyright (C) 2026 @YorokobiMaster
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+// Xiaomi displayfeature AIDL contract, recovered from dash stock
+// OS3.0.305.0.WPLCNXM /vendor/lib64/vendor.xiaomi.hardware.displayfeature_aidl-V2-ndk.so
+// (SHA-256 3b398e88be328528393bd2c2e915fdc1ef2b580645a75618f7e6934ee3aa82c6):
+// method order and transaction codes verified by disassembly, parameter types
+// from exported dynamic symbols. See docs/dash/livedisplay-v1-contract.md.
+
+aidl_interface {
+    name: "vendor.xiaomi.hardware.displayfeature_aidl",
+    srcs: ["vendor/xiaomi/hardware/displayfeature_aidl/*.aidl"],
+    stability: "vintf",
+    owner: "xiaomi",
+    backend: {
+        cpp: {
+            enabled: false,
+        },
+        java: {
+            enabled: false,
+        },
+    },
+    frozen: true,
+    versions_with_info: [
+        {
+            version: "2",
+            imports: [],
+        },
+    ],
+}

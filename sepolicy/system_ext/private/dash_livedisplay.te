@@ -1,0 +1,30 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+type dash_livedisplay, coredomain, domain;
+type dash_livedisplay_exec, system_file_type, exec_type, file_type;
+
+init_daemon_domain(dash_livedisplay)
+hal_server_domain(dash_livedisplay, hal_lineage_livedisplay)
+
+set_prop(dash_livedisplay, dash_livedisplay_prop)
+
+# addService goes through servicemanager; hal_server_domain only carries
+# attributes on this branch and does not grant the binder call. Without this
+# the publish is denied and system_server's LiveDisplayService blocks in
+# onBootPhase until the watchdog restarts it.
+binder_call(dash_livedisplay, servicemanager)
+
+# NDK binder opens /sys/kernel/tracing/trace_marker on the first transaction.
+# The service runs as uid system and tracing is optional; silence the
+# resulting self capability denials instead of granting DAC override.
+dontaudit dash_livedisplay self:capability { dac_override dac_read_search };
+
+# The retained stock vendor policy owns these types. Redeclare them here so
+# this module can express the client rules, same pattern as
+# vendor_displayfeature_device in device.te.
+type vendor_hal_displayfeature_xiaomi_default, domain;
+type vendor_hal_displayfeature_xiaomi_service, service_manager_type, hal_service_type;
+
+allow dash_livedisplay vendor_hal_displayfeature_xiaomi_service:service_manager find;
+binder_call(dash_livedisplay, vendor_hal_displayfeature_xiaomi_default)
