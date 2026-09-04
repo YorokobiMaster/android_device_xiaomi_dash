@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <com.android.settingslib.widget.MainSwitchPreference
+        android:key="ds_on"
+        android:title="@string/ds_on_title"
+        android:defaultValue="true"
+        android:persistent="false" />
+
+    <ListPreference
+        android:key="profile"
+        android:title="@string/profile_title"
+        android:entries="@array/profile_names"
+        android:entryValues="@array/profile_values"
+        android:defaultValue="0"
+        android:persistent="false" />
+
+    <ListPreference
+        android:key="ieq_preset"
+        android:title="@string/ieq_preset_title"
+        android:entries="@array/ieq_preset_names"
+        android:entryValues="@array/ieq_preset_values"
+        android:defaultValue="2"
+        android:persistent="false" />
+
+    <Preference
+        android:key="equalizer"
+        android:title="@string/equalizer_title"
+        android:summary="@string/equalizer_summary"
+        android:persistent="false" />
+
+    <SwitchPreferenceCompat
+        android:key="dialog_enhancer"
+        android:title="@string/dialog_enhancer_title"
+        android:summary="@string/dialog_enhancer_summary"
+        android:defaultValue="true"
+        android:persistent="false" />
+
+    <SwitchPreferenceCompat
+        android:key="volume_leveler"
+        android:title="@string/volume_leveler_title"
+        android:summary="@string/volume_leveler_summary"
+        android:defaultValue="true"
+        android:persistent="false" />
+
+    <SwitchPreferenceCompat
+        android:key="headphone_virtualizer"
+        android:title="@string/headphone_virtualizer_title"
+        android:summary="@string/headphone_virtualizer_summary"
+        android:defaultValue="true"
+        android:persistent="false" />
+
+</PreferenceScreen>

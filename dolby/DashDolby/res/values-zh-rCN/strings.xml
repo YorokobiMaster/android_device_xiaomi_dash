@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">杜比全景声</string>
+    <string name="dolby_settings_summary">音效风格和音频增强功能</string>
+    <string name="dolby_unavailable">杜比音效尚未就绪，请稍后重新打开本页面。</string>
+
+    <string name="ds_on_title">杜比全景声</string>
+
+    <string name="profile_title">音效风格</string>
+    <string name="profile_default">默认</string>
+    <string name="profile_bass">低音</string>
+    <string name="profile_loudness">响度</string>
+    <string name="profile_spatial">空间音频</string>
+
+    <string name="ieq_preset_title">均衡器预设</string>
+    <string name="ieq_preset_manual">手动</string>
+    <string name="ieq_preset_detailed">细腻</string>
+    <string name="ieq_preset_balanced">均衡</string>
+    <string name="ieq_preset_warm">温暖</string>
+
+    <string name="equalizer_title">图形均衡器</string>
+    <string name="equalizer_summary">调整杜比均衡器</string>
+    <string name="equalizer_view_hint">拖动滑杆以调整对应频段</string>
+    <string name="equalizer_selected_band">%1$s · %2$s</string>
+    <string name="equalizer_view_accessibility">图形均衡器</string>
+    <string name="equalizer_frequency_hz">%1$d Hz</string>
+    <string name="equalizer_frequency_khz">%1$.1f kHz</string>
+    <string name="equalizer_preset_title">预设</string>
+    <string name="equalizer_preset_custom">自定义</string>
+    <string name="equalizer_preset_rock">摇滚</string>
+    <string name="equalizer_preset_jazz">爵士</string>
+    <string name="equalizer_preset_pop">流行</string>
+    <string name="equalizer_preset_classical">古典</string>
+    <string name="equalizer_preset_hip_hop">嘻哈</string>
+    <string name="equalizer_preset_blues">布鲁斯</string>
+    <string name="equalizer_preset_electronic">电子</string>
+    <string name="equalizer_preset_metal">金属</string>
+
+    <string name="dialog_enhancer_title">人声增强</string>
+    <string name="dialog_enhancer_summary">让视频中的对白更清晰</string>
+    <string name="volume_leveler_title">音量均衡</string>
+    <string name="volume_leveler_summary">保持不同内容的音量一致</string>
+    <string name="headphone_virtualizer_title">耳机虚拟化</string>
+    <string name="headphone_virtualizer_summary">为耳机提供环绕声虚拟化</string>
+</resources>

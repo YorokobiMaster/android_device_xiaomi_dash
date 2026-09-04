@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">Dolby Atmos</string>
+    <string name="dolby_settings_summary">Sound profiles and audio enhancements</string>
+    <string name="dolby_unavailable">Dolby effect is not available yet. Reopen this page in a few seconds.</string>
+
+    <string name="ds_on_title">Dolby Atmos</string>
+
+    <string name="profile_title">Sound style</string>
+    <string name="profile_default">Default</string>
+    <string name="profile_bass">Bass</string>
+    <string name="profile_loudness">Loudness</string>
+    <string name="profile_spatial">Spatial audio</string>
+
+    <string name="ieq_preset_title">Equalizer preset</string>
+    <string name="ieq_preset_manual">Manual</string>
+    <string name="ieq_preset_detailed">Detailed</string>
+    <string name="ieq_preset_balanced">Balanced</string>
+    <string name="ieq_preset_warm">Warm</string>
+
+    <string name="equalizer_title">Graphic equalizer</string>
+    <string name="equalizer_summary">Adjust the Dolby equalizer</string>
+    <string name="equalizer_view_hint">Drag a slider to adjust its frequency band</string>
+    <string name="equalizer_selected_band">%1$s · %2$s</string>
+    <string name="equalizer_view_accessibility">Graphic equalizer</string>
+    <string name="equalizer_frequency_hz">%1$d Hz</string>
+    <string name="equalizer_frequency_khz">%1$.1f kHz</string>
+    <string name="equalizer_preset_title">Preset</string>
+    <string name="equalizer_preset_custom">Custom</string>
+    <string name="equalizer_preset_rock">Rock</string>
+    <string name="equalizer_preset_jazz">Jazz</string>
+    <string name="equalizer_preset_pop">Pop</string>
+    <string name="equalizer_preset_classical">Classical</string>
+    <string name="equalizer_preset_hip_hop">Hip hop</string>
+    <string name="equalizer_preset_blues">Blues</string>
+    <string name="equalizer_preset_electronic">Electronic</string>
+    <string name="equalizer_preset_metal">Metal</string>
+
+    <string name="dialog_enhancer_title">Dialogue enhancer</string>
+    <string name="dialog_enhancer_summary">Make speech in videos easier to hear</string>
+    <string name="volume_leveler_title">Volume leveler</string>
+    <string name="volume_leveler_summary">Keep volume consistent across content</string>
+    <string name="headphone_virtualizer_title">Headphone virtualizer</string>
+    <string name="headphone_virtualizer_summary">Surround sound virtualization for headphones</string>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <ListPreference
+        android:key="equalizer_preset"
+        android:title="@string/equalizer_preset_title"
+        android:entries="@array/equalizer_preset_names"
+        android:entryValues="@array/equalizer_preset_values"
+        android:defaultValue="0"
+        android:persistent="false" />
+
+    <me.sandai.dashdolby.EqualizerPreference
+        android:key="equalizer_view" />
+
+</PreferenceScreen>

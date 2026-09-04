@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="16dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="16dp">
+
+    <TextView
+        android:id="@+id/equalizer_selected_band"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textAppearance="?android:attr/textAppearanceListItem"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:text="@string/equalizer_view_hint"
+        android:textAppearance="?android:attr/textAppearanceListItemSecondary" />
+
+    <me.sandai.dashdolby.EqualizerView
+        android:id="@+id/equalizer_view"
+        android:layout_width="match_parent"
+        android:layout_height="248dp"
+        android:layout_marginTop="12dp"
+        android:paddingStart="0dp"
+        android:paddingEnd="0dp" />
+
+</LinearLayout>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Names match the profiles defined in the stock vendor tuning
+         (vendor/etc/dolby/dax-default.xml). -->
+    <string-array name="profile_names">
+        <item>@string/profile_default</item>
+        <item>@string/profile_bass</item>
+        <item>@string/profile_loudness</item>
+        <item>@string/profile_spatial</item>
+    </string-array>
+    <string-array name="profile_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+    <string-array name="ieq_preset_names">
+        <item>@string/ieq_preset_manual</item>
+        <item>@string/ieq_preset_detailed</item>
+        <item>@string/ieq_preset_balanced</item>
+        <item>@string/ieq_preset_warm</item>
+    </string-array>
+    <string-array name="ieq_preset_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+    <string-array name="equalizer_preset_names">
+        <item>@string/equalizer_preset_custom</item>
+        <item>@string/equalizer_preset_rock</item>
+        <item>@string/equalizer_preset_jazz</item>
+        <item>@string/equalizer_preset_pop</item>
+        <item>@string/equalizer_preset_classical</item>
+        <item>@string/equalizer_preset_hip_hop</item>
+        <item>@string/equalizer_preset_blues</item>
+        <item>@string/equalizer_preset_electronic</item>
+        <item>@string/equalizer_preset_metal</item>
+    </string-array>
+    <string-array name="equalizer_preset_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+    </string-array>
+</resources>

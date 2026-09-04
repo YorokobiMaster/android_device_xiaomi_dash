@@ -70,6 +70,7 @@ PRODUCT_PACKAGES += \
     DashAOD \
     DashAOV \
     DashCharging \
+    DashDolby \
     DashDt2w \
     DashFrameworkResOverlay \
     DashRefreshRate \
