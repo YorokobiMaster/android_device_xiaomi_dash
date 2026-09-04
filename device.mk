@@ -59,6 +59,12 @@ PRODUCT_SYSTEM_PROPERTIES += \
 
 PRODUCT_PACKAGES += DashFod
 
+# lineage_dash does not inherit build/make/target/product/base_system_ext.mk,
+# so the ashmem allocator service is never installed even though the frozen
+# device matrices require the framework to declare it (check-vintf-all).
+PRODUCT_PACKAGES += \
+    android.hidl.allocator@1.0-service
+
 PRODUCT_PACKAGES += \
     DashApertureOverlay \
     DashAOD \
