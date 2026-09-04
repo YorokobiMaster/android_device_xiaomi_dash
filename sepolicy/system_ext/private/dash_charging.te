@@ -1,0 +1,14 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# DashCharging (system_app) toggles fast reverse charging. The on/off switch goes
+# through the MiCharge HAL, but the tier-gate consent flag revchg_bcl is not exposed
+# by the HAL, so the app reads otg_enable and writes revchg_bcl directly.
+
+# The retained stock vendor policy owns this type. Redeclare it bare so this module
+# can express the client rules: adding the sysfs_type/file_type attributes here would
+# expand init/vendor_init's broad attribute-based dir allows onto this type and trip
+# the domain->sysfs_type dir-write neverallow during the checked compile.
+type sysfs_usb_supply;
+
+allow system_app sysfs_usb_supply:file { getattr open read write };

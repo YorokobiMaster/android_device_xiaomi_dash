@@ -20,6 +20,8 @@ final class MiChargeClient {
             "vendor.xiaomi.hardware.micharge.IMiCharge";
     private static final String SMART_CHG_PATH = "smart_chg";
 
+    private static final String REVERSE_QUICK_CHARGE_PATH = "reverse_quick_charge";
+
     private static final int TRANSACTION_GET_MI_CHARGE_PATH = 18;
     private static final int TRANSACTION_SET_MI_CHARGE_PATH = 43;
     private static final int FLAG_PRIVATE_VENDOR = 0x10000000;
@@ -45,6 +47,49 @@ final class MiChargeClient {
     }
 
     static boolean setBypassRequested(boolean enabled) {
+        if (!setPath(SMART_CHG_PATH,
+                enabled ? BYPASS_ENABLED_VALUE : BYPASS_DISABLED_VALUE)) {
+            return false;
+        }
+
+        Boolean requested = isBypassRequested();
+        if (requested == null || requested != enabled) {
+            Log.e(TAG, "smart_chg readback did not match requested state");
+            return false;
+        }
+        return true;
+    }
+
+    static Boolean isReverseQuickChargeEnabled() {
+        String value = getPath(REVERSE_QUICK_CHARGE_PATH);
+        if (value == null) {
+            return null;
+        }
+        switch (value.trim()) {
+            case "1":
+                return true;
+            case "0":
+                return false;
+            default:
+                Log.e(TAG, "Invalid reverse_quick_charge value: " + value);
+                return null;
+        }
+    }
+
+    static boolean setReverseQuickCharge(boolean enabled) {
+        if (!setPath(REVERSE_QUICK_CHARGE_PATH, enabled ? "1" : "0")) {
+            return false;
+        }
+
+        Boolean requested = isReverseQuickChargeEnabled();
+        if (requested == null || requested != enabled) {
+            Log.e(TAG, "reverse_quick_charge readback did not match requested state");
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean setPath(String path, String value) {
         IBinder service = ServiceManager.checkService(SERVICE_NAME);
         if (service == null) {
             Log.e(TAG, "MiCharge service is unavailable");
@@ -55,8 +100,8 @@ final class MiChargeClient {
         Parcel reply = Parcel.obtain();
         try {
             data.writeInterfaceToken(SERVICE_DESCRIPTOR);
-            data.writeString(SMART_CHG_PATH);
-            data.writeString(enabled ? BYPASS_ENABLED_VALUE : BYPASS_DISABLED_VALUE);
+            data.writeString(path);
+            data.writeString(value);
             if (!service.transact(TRANSACTION_SET_MI_CHARGE_PATH, data, reply,
                     FLAG_PRIVATE_VENDOR)) {
                 Log.e(TAG, "MiCharge setMiChargePath transaction is unavailable");
@@ -65,17 +110,11 @@ final class MiChargeClient {
             reply.readException();
             reply.readInt();
         } catch (RemoteException | RuntimeException e) {
-            Log.e(TAG, "Unable to update smart_chg", e);
+            Log.e(TAG, "Unable to write " + path, e);
             return false;
         } finally {
             reply.recycle();
             data.recycle();
-        }
-
-        Boolean requested = isBypassRequested();
-        if (requested == null || requested != enabled) {
-            Log.e(TAG, "smart_chg readback did not match requested state");
-            return false;
         }
         return true;
     }
