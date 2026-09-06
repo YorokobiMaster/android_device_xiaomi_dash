@@ -51,16 +51,13 @@ on early-boot
 # AW21024 camera ring LED register access for DashLedService (priv_app
 # domain). The world-writable Unix mode is gated by SELinux: the nodes carry
 # the stock vendor_sysfs_led_file label and only priv_app (plus stock
-# mtk_hal_light/system_app) may write them. Runs as a service so the result
-# is observable through init.svc.dash-led-perms; boot_completed ordering also
-# guarantees we win against the stock odm init_leds.rc "on boot" block, which
-# re-chowns these nodes to system:system 0664.
-service dash-led-perms /system/bin/chmod 0666 /sys/class/leds/aw21024_led/hwen /sys/class/leds/aw21024_led/run /sys/class/leds/aw21024_led/reg
-    class core
-    user root
-    group root
-    disabled
-    oneshot
-
+# mtk_hal_light/system_app) may write them. boot_completed ordering wins
+# against the stock odm init_leds.rc "on boot" block, which re-chowns these
+# nodes to system:system 0664 (observed ctime ~7s). Use init builtins, not a
+# forked service: a toybox chmod service provably started at boot_completed
+# (ro.boottime.dash-led-perms) yet the chmod never landed (inode ctime
+# unchanged), with the evidence lost to early-boot audit ratelimiting.
 on property:sys.boot_completed=1
-    start dash-led-perms
+    chmod 0666 /sys/class/leds/aw21024_led/hwen
+    chmod 0666 /sys/class/leds/aw21024_led/run
+    chmod 0666 /sys/class/leds/aw21024_led/reg
