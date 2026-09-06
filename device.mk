@@ -111,7 +111,8 @@ PRODUCT_BOOT_JARS_EXTRA += \
     system_ext:dash-ims-telephony-metrics
 
 DEVICE_PACKAGE_OVERLAYS += \
-    $(DEVICE_PATH)/overlay
+    $(DEVICE_PATH)/overlay \
+    $(DEVICE_PATH)/overlay-lineage
 
 # MindTheGApps/vendor_gapps, branch `baklava`, core GMS fits default partition sizes.
 $(call inherit-product, $(DEVICE_PATH)/enhancements/gapps/core-arm64.mk)
