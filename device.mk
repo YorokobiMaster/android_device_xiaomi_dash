@@ -72,6 +72,7 @@ PRODUCT_PACKAGES += \
     DashCharging \
     DashDolby \
     DashDt2w \
+    DashEyeCare \
     DashFrameworkResOverlay \
     DashRefreshRate \
     DashSettingsOverlay \
