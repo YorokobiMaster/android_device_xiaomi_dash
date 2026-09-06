@@ -8,7 +8,7 @@ package me.sandai.dashled;
 import android.content.Context;
 
 /** Process-wide LED plumbing shared by the binder service, the notification
- *  listener and the settings UI (all live in this persistent process). */
+ *  listener and the settings UI (all live in the app process). */
 public final class LedCore {
 
     private static LedCore sInstance;
