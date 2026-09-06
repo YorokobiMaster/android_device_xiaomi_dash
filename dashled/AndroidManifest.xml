@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="me.sandai.dashled">
+
+    <!-- Declaration gate only; the real authorization is the App access grant
+         checked by calling UID inside DashLedService. -->
+    <permission
+        android:name="me.sandai.dashled.permission.CONTROL"
+        android:protectionLevel="normal" />
+
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
+    <application
+        android:name=".DashLedApplication"
+        android:allowBackup="false"
+        android:defaultToDeviceProtectedStorage="true"
+        android:directBootAware="true"
+        android:icon="@drawable/ic_led_apertures"
+        android:label="@string/app_name"
+        android:persistent="true"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SubSettingsBase.Expressive">
+
+        <activity
+            android:name=".LedSettingsActivity"
+            android:label="@string/app_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.android.settings.action.IA_SETTINGS" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.android.settings.category"
+                android:value="com.android.settings.category.ia.notifications" />
+            <meta-data
+                android:name="com.android.settings.icon"
+                android:resource="@drawable/ic_led_apertures" />
+            <meta-data
+                android:name="com.android.settings.icon_tintable"
+                android:value="true" />
+            <meta-data
+                android:name="com.android.settings.summary"
+                android:resource="@string/master_summary" />
+            <meta-data
+                android:name="com.android.settings.order"
+                android:value="-10" />
+            <meta-data
+                android:name="com.android.settings.profile"
+                android:value="primary_profile_only" />
+        </activity>
+
+        <activity
+            android:name=".NotificationAppsActivity"
+            android:label="@string/notif_apps_title"
+            android:exported="false" />
+
+        <service
+            android:name=".DashLedService"
+            android:exported="true"
+            android:permission="me.sandai.dashled.permission.CONTROL">
+            <intent-filter>
+                <action android:name="me.sandai.dashled.BIND" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".LedNotificationListener"
+            android:label="@string/app_name"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

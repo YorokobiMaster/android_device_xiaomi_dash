@@ -1,0 +1,21 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# DashLedService (stock priv_app domain) drives the AW21024 camera ring LED
+# through its sysfs register nodes. A dedicated domain was tried and dropped:
+# the domain switch broke the app's basic service_manager finds, and every
+# priv-app on this device is either ours or AOSP's anyway (same trade-off as
+# dash_charging.te's system_app allow).
+
+# The retained stock vendor policy labels the AW21024 nodes
+# vendor_sysfs_led_file via ueventd restorecon (vendor_file_contexts), which
+# beats any genfscon added on the platform side. Redeclare the type bare so
+# this module can express the client rule: adding the sysfs_type/file_type
+# attributes here would expand init/vendor_init's broad attribute-based dir
+# allows onto this type and trip the domain->sysfs_type dir-write neverallow
+# during the checked compile.
+type vendor_sysfs_led_file;
+
+# Explicit permission list: rw_file_perms would pull in ioctl and trip the
+# domain.te no-arbitrary-ioctl neverallow.
+allow priv_app vendor_sysfs_led_file:file { getattr open read write };

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Ring -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,4a8,8 0 1 0 0,16a8,8 0 1 0 0,-16zM12,6.5a5.5,5.5 0 1 1 0,11a5.5,5.5 0 1 1 0,-11z" />
+    <!-- Segment markers on the ring -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2.5A1.2,1.2 0 1 0 12,4.9A1.2,1.2 0 1 0 12,2.5z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M21.5,12A1.2,1.2 0 1 0 19.1,12A1.2,1.2 0 1 0 21.5,12z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,21.5A1.2,1.2 0 1 0 12,19.1A1.2,1.2 0 1 0 12,21.5z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2.5,12A1.2,1.2 0 1 0 4.9,12A1.2,1.2 0 1 0 2.5,12z" />
+</vector>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <com.android.settingslib.widget.MainSwitchPreference
+        android:key="master"
+        android:title="@string/master_title"
+        android:summary="@string/master_summary"
+        android:persistent="false" />
+
+    <PreferenceCategory
+        android:key="notif_category"
+        android:title="@string/notif_category_title">
+
+        <SwitchPreferenceCompat
+            android:key="notif_enabled"
+            android:title="@string/notif_enabled_title"
+            android:summary="@string/notif_enabled_summary"
+            android:persistent="false" />
+
+        <ListPreference
+            android:key="notif_color"
+            android:title="@string/notif_color_title"
+            android:entries="@array/led_color_names"
+            android:entryValues="@array/led_color_values"
+            android:defaultValue="FFFFFF"
+            android:persistent="false" />
+
+        <Preference
+            android:key="notif_apps"
+            android:title="@string/notif_apps_title"
+            android:summary="@string/notif_apps_summary"
+            android:persistent="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="app_access_category"
+        android:title="@string/app_access_title" />
+
+</PreferenceScreen>

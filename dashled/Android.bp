@@ -1,0 +1,31 @@
+// Copyright (C) 2026 @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+// The AIDL is compiled straight into the app; third-party clients copy the
+// .aidl files (or the generated jar) into their own SDK module.
+android_app {
+    name: "DashLedService",
+    srcs: [
+        "src/**/*.java",
+        "aidl/**/*.aidl",
+    ],
+    aidl: {
+        local_include_dirs: ["aidl"],
+    },
+    resource_dirs: ["res"],
+    static_libs: [
+        "SettingsLibCollapsingToolbarBaseActivity",
+        "SettingsLibMainSwitchPreference",
+    ],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    optimize: {
+        enabled: true,
+    },
+}

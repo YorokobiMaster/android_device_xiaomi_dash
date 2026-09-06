@@ -14,4 +14,7 @@
     <privapp-permissions package="me.sandai.dashfod">
         <permission name="android.permission.MANAGE_USERS"/>
     </privapp-permissions>
+    <privapp-permissions package="me.sandai.dashled">
+        <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+    </privapp-permissions>
 </permissions>

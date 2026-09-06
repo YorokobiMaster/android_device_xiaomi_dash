@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">LED 光圈</string>
+
+    <string name="master_title">使用 LED 光圈</string>
+    <string name="master_summary">镜头环灯</string>
+
+    <string name="notif_category_title">通知</string>
+    <string name="notif_enabled_title">通知提醒</string>
+    <string name="notif_enabled_summary">新通知时灯环呼吸闪烁</string>
+    <string name="notif_color_title">默认颜色</string>
+    <string name="notif_apps_title">应用</string>
+    <string name="notif_apps_summary">选择哪些应用的通知点亮灯环</string>
+
+    <string name="app_access_title">应用访问权限</string>
+    <string name="app_access_empty">暂无应用请求 LED 光圈访问权限</string>
+
+    <string name="color_white">白色</string>
+    <string name="color_red">红色</string>
+    <string name="color_green">绿色</string>
+    <string name="color_blue">蓝色</string>
+    <string name="color_yellow">黄色</string>
+    <string name="color_cyan">青色</string>
+    <string name="color_magenta">品红</string>
+</resources>

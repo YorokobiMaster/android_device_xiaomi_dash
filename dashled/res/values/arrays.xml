@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string-array name="led_color_names">
+        <item>@string/color_white</item>
+        <item>@string/color_red</item>
+        <item>@string/color_green</item>
+        <item>@string/color_blue</item>
+        <item>@string/color_yellow</item>
+        <item>@string/color_cyan</item>
+        <item>@string/color_magenta</item>
+    </string-array>
+
+    <string-array name="led_color_values" translatable="false">
+        <item>FFFFFF</item>
+        <item>FF0000</item>
+        <item>00FF00</item>
+        <item>0000FF</item>
+        <item>FFFF00</item>
+        <item>00FFFF</item>
+        <item>FF00FF</item>
+    </string-array>
+</resources>

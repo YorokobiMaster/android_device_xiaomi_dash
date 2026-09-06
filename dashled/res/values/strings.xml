@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">LED apertures</string>
+
+    <string name="master_title">Use LED apertures</string>
+    <string name="master_summary">Camera lens ring light</string>
+
+    <string name="notif_category_title">Notifications</string>
+    <string name="notif_enabled_title">Notification alerts</string>
+    <string name="notif_enabled_summary">Pulse the ring light for new notifications</string>
+    <string name="notif_color_title">Default color</string>
+    <string name="notif_apps_title">Apps</string>
+    <string name="notif_apps_summary">Choose which apps light up the ring</string>
+
+    <string name="app_access_title">App access</string>
+    <string name="app_access_empty">No apps have requested LED apertures access</string>
+
+    <string name="color_white">White</string>
+    <string name="color_red">Red</string>
+    <string name="color_green">Green</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_cyan">Cyan</string>
+    <string name="color_magenta">Magenta</string>
+</resources>
