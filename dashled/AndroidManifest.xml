@@ -14,6 +14,9 @@
         android:protectionLevel="normal" />
 
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!-- The App access page scans installed packages for dashled client
+         metadata; without this the package-visibility filter hides them. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <application
         android:name=".DashLedApplication"

@@ -102,6 +102,7 @@ public final class Aw21024Backend {
         final boolean off;
         synchronized (mLock) {
             mFlushScheduled = false;
+            mLastFlushUptimeMs = SystemClock.uptimeMillis();
             colors = mPendingColors;
             brightness = mPendingBrightness;
             off = mPendingOff;
@@ -111,7 +112,6 @@ public final class Aw21024Backend {
                 return;
             }
         }
-        mLastFlushUptimeMs = SystemClock.uptimeMillis();
         try {
             if (off) {
                 powerOff();

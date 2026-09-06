@@ -30,7 +30,7 @@ public final class DashLedPrefs {
     private static final String KEY_NOTIF_ENABLED = "notif_enabled";
     private static final String KEY_NOTIF_COLOR = "notif_color";
     private static final String KEY_NOTIF_APP_PREFIX = "notif_app_";
-    private static final String KEY_ALLOWED_CLIENTS = "allowed_clients";
+    static final String KEY_ALLOWED_CLIENTS = "allowed_clients";
 
     private DashLedPrefs() {
     }
@@ -38,6 +38,12 @@ public final class DashLedPrefs {
     private static SharedPreferences prefs(Context context) {
         return context.createDeviceProtectedStorageContext()
                 .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+    }
+
+    /** The framework holds listeners weakly; callers must keep a strong ref. */
+    public static void registerOnChangeListener(Context context,
+            SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        prefs(context).registerOnSharedPreferenceChangeListener(listener);
     }
 
     public static boolean isMasterEnabled(Context context) {

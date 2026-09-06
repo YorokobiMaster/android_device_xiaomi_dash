@@ -11,11 +11,11 @@ import me.sandai.dashled.aidl.IDashLedSession;
  * "me.sandai.dashled.BIND" on package "me.sandai.dashled".
  *
  * Callers must hold me.sandai.dashled.permission.CONTROL and be granted in
- * Settings > Accessibility > LED apertures > App access, otherwise
+ * Settings > Notifications > LED apertures > App access, otherwise
  * acquireSession throws SecurityException.
  */
 interface IDashLedManager {
-    const int API_VERSION = 1;
+    const int API_VERSION = 2;
 
     /** External apps always get CATEGORY_THIRD_PARTY; the higher categories
      *  are reserved for producers built into the service. */
@@ -25,5 +25,8 @@ interface IDashLedManager {
 
     int getApiVersion();
     DashLedCapabilities getCapabilities();
-    IDashLedSession acquireSession(int category);
+    /** clientToken must be a binder owned by the caller; the session is
+     *  released automatically when it dies. Pass null only from the service's
+     *  own process. */
+    IDashLedSession acquireSession(int category, in IBinder clientToken);
 }

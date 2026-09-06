@@ -19,7 +19,9 @@ import me.sandai.dashled.aidl.DashLedEffect;
  * clients never stream frames for built-in-style animations.
  *
  * External lock order: all public methods are synchronized; hardware writes
- * go through the backend's own serialized handler.
+ * go through the backend's own serialized handler. Effect completion
+ * callbacks always run after the arbiter lock is released, so callbacks may
+ * re-enter the arbiter.
  */
 public final class LedArbiter {
 
@@ -174,6 +176,7 @@ public final class LedArbiter {
 
         @Override
         public void run() {
+            final Runnable done;
             synchronized (LedArbiter.this) {
                 if (mEffectRunner != this || mSession.effect == null) {
                     return;
@@ -184,18 +187,21 @@ public final class LedArbiter {
                 int level = Math.round(effect.brightness * triangle);
                 mBackend.submitFrame(effect.colors, level);
 
+                Runnable completed = null;
                 if (++mStep >= mStepsPerCycle) {
                     mStep = 0;
                     if (effect.repeatCount > 0 && ++mCycle >= effect.repeatCount) {
-                        Runnable done = mSession.onEffectDone;
+                        completed = mSession.onEffectDone;
                         clear(mSession);
-                        if (done != null) {
-                            done.run();
-                        }
-                        return;
                     }
                 }
-                mHandler.postDelayed(this, Aw21024Backend.MIN_FRAME_INTERVAL_MS);
+                done = completed;
+                if (done == null) {
+                    mHandler.postDelayed(this, Aw21024Backend.MIN_FRAME_INTERVAL_MS);
+                }
+            }
+            if (done != null) {
+                done.run();
             }
         }
     }
