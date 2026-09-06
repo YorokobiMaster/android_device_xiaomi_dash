@@ -19,3 +19,13 @@ type vendor_sysfs_led_file;
 # Explicit permission list: rw_file_perms would pull in ioctl and trip the
 # domain.te no-arbitrary-ioctl neverallow.
 allow priv_app vendor_sysfs_led_file:file { getattr open read write };
+
+# init's builtin chmod in init.dash-system_ext.rc makes the nodes
+# world-writable at sys.boot_completed. init's generic pseudo-filesystem
+# setattr does not cover sysfs types on Android 16, so grant it explicitly.
+allow init vendor_sysfs_led_file:file setattr;
+
+# App domains carry MLS categories (s0:c512,c768) while the sysfs nodes sit
+# at bare s0, so the mls:108 write constraint (l1 eq l2) rejects writes even
+# with the TE allow above. Exempt the object side; TE still gates who writes.
+typeattribute vendor_sysfs_led_file mlstrustedobject;
