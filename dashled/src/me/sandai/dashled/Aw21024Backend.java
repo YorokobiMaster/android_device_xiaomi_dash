@@ -127,13 +127,15 @@ public final class Aw21024Backend {
     }
 
     private void powerOn() throws IOException {
-        writeNode(NODE_RUN, "0");
+        // No run=0 here: it replays the 62-register led_off array in the
+        // driver, which can take seconds when this process sits in a cached
+        // cgroup. The hwen cycle below fully resets the chip anyway.
         writeNode(NODE_HWEN, "0");
         SystemClock.sleep(10);
         writeNode(NODE_HWEN, "1");
         writeReg(REG_GCCR, 0x80);
         writeReg(REG_GCFG0, 0);
-        writeReg(REG_GCOLDIS, 0);
+        writeReg(REG_GCOLDIS, 1);
         writeReg(REG_RGBMD, 0);
         mPowered = true;
     }
@@ -170,8 +172,7 @@ public final class Aw21024Backend {
 
     private static void writeNode(String path, String value) throws IOException {
         try (FileOutputStream out = new FileOutputStream(path)) {
-            out.write(value.getBytes(StandardCharsets.US_ASCII));
-            out.write('\n');
+            out.write((value + "\n").getBytes(StandardCharsets.US_ASCII));
         }
     }
 }
