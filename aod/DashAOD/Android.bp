@@ -17,6 +17,6 @@ android_app {
     privileged: true,
     system_ext_specific: true,
     optimize: {
-        enabled: false,
+        enabled: true,
     },
 }
