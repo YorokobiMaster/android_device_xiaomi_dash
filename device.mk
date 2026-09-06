@@ -86,6 +86,7 @@ PRODUCT_PACKAGES += \
     mediatek-common \
     mediatek-ims-base \
     dash-ims-telephony-metrics \
+    dash-health \
     dash-displayfeature-compat \
     dash-livedisplay \
     dash-unavailable-features \

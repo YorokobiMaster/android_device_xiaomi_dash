@@ -1,0 +1,21 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+type dash_health, coredomain, domain;
+type dash_health_exec, system_file_type, exec_type, file_type;
+
+type sysfs_dash_charge, sysfs_type, fs_type;
+
+init_daemon_domain(dash_health)
+hal_server_domain(dash_health, hal_lineage_health)
+
+# addService goes through servicemanager; see dash_livedisplay.te for why
+# hal_server_domain alone is not enough on this branch.
+binder_call(dash_health, servicemanager)
+
+# NDK binder opens /sys/kernel/tracing/trace_marker on the first transaction.
+dontaudit dash_health self:capability { dac_override dac_read_search };
+
+# Charging toggle backend. input_suspend is labeled by the genfscon below;
+# everything else under power_supply stays off-limits.
+allow dash_health sysfs_dash_charge:file rw_file_perms;

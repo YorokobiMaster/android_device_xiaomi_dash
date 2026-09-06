@@ -1,0 +1,9 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# Verified-safe charging control node (toggle semantics: 1 = suspend input,
+# 0 = charge). charge_control_limit is deliberately NOT labeled here: in the
+# kernel it only stores a thermal_level value with no charger-side effect.
+# (An earlier full-charge hard crash while poking charge nodes was NOT
+# reproduced as caused by charge_control_limit; root cause undetermined.)
+genfscon sysfs /class/power_supply/battery/input_suspend u:object_r:sysfs_dash_charge:s0

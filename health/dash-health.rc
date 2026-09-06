@@ -1,0 +1,7 @@
+# Copyright (C) 2026 @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+service dash-health /system_ext/bin/hw/dash-health
+    class hal
+    user system
+    group system
