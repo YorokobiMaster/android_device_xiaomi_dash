@@ -42,11 +42,35 @@ public final class Aw21024Backend {
     private static final int REG_RGBMD = 0x7a;
     private static final int CHANNEL_COUNT = 24;
 
+    // BPC (hardware autonomous pattern) registers.
+    private static final int REG_PATCFG = 0xa0;
+    private static final int REG_PATGO = 0xa1;
+    private static final int REG_PATT0 = 0xa2;
+    private static final int REG_PATT1 = 0xa3;
+    private static final int REG_PATT2 = 0xa4;
+    private static final int REG_PATT3 = 0xa5;
+    private static final int REG_FADEH = 0xa6;
+    private static final int REG_FADEL = 0xa7;
+    private static final int REG_GCOLR = 0xa8;
+    private static final int REG_GCOLG = 0xa9;
+    private static final int REG_GCOLB = 0xaa;
+
+    /** GCFG0 bits 3-6: chip groups 3-6 = public zones 0-3. */
+    private static final int BPC_ZONE_MASK = 0x78;
+
+    /** Driver quantization steps (leds-color21024.h breath_timerms_map_reg). */
+    private static final int[] TIMER_MS = {
+            0, 130, 260, 380, 510, 770, 1040, 1600,
+            2100, 2600, 3100, 4200, 5200, 6200, 7300, 8300};
+    /** T1/T3 nibble 0 is not 0 ms on this chip; the datasheet says 40 ms. */
+    private static final int HOLD_ZERO_MS = 40;
+
     private final Object mLock = new Object();
     private final HandlerThread mThread;
     private final Handler mHandler;
 
     private boolean mPowered;
+    private boolean mBpcActive;
     private long mLastFlushUptimeMs;
     private boolean mFlushScheduled;
     private int[] mPendingColors;
@@ -116,9 +140,10 @@ public final class Aw21024Backend {
             if (off) {
                 powerOff();
             } else {
-                if (!mPowered) {
+                if (!mPowered || mBpcActive) {
                     powerOn();
                 }
+                mBpcActive = false;
                 applyFrame(colors, brightness);
             }
         } catch (IOException e) {
@@ -141,13 +166,110 @@ public final class Aw21024Backend {
     }
 
     private void powerOff() throws IOException {
-        for (int k = 0; k < CHANNEL_COUNT; k++) {
-            writeReg(0x01 + 2 * k, 0);
+        if (mBpcActive) {
+            // BPC never programmed the BR registers; dropping hwen stops the
+            // pattern and skips the 85-write normal shutdown.
+            writeNode(NODE_HWEN, "0");
+        } else {
+            for (int k = 0; k < CHANNEL_COUNT; k++) {
+                writeReg(0x01 + 2 * k, 0);
+            }
+            writeReg(REG_UPDATE, 0);
+            writeNode(NODE_RUN, "0");
+            writeNode(NODE_HWEN, "0");
         }
-        writeReg(REG_UPDATE, 0);
-        writeNode(NODE_RUN, "0");
-        writeNode(NODE_HWEN, "0");
         mPowered = false;
+        mBpcActive = false;
+    }
+
+    /**
+     * One-shot handoff to the chip's autonomous pattern controller: after this
+     * sequence the LED breathes with no further CPU involvement, across deep
+     * sleep. Register order verified on-device; see
+     * tmp/disposable-anytime/led-cal/aw21024-bpc-investigation.md.
+     */
+    public void submitBpcBreath(int color, int brightness, int periodMs, int repeatCount) {
+        synchronized (mLock) {
+            mPendingColors = null;
+            mPendingOff = false;
+        }
+        mHandler.post(() -> {
+            try {
+                startBpc(color, brightness, periodMs, repeatCount);
+            } catch (IOException e) {
+                Log.e(TAG, "BPC start failed", e);
+            }
+        });
+    }
+
+    private void startBpc(int color, int brightness, int periodMs, int repeatCount)
+            throws IOException {
+        int rise = quantizeTimerNibble(periodMs / 2);
+        int fall = quantizeTimerNibble(periodMs - periodMs / 2);
+        brightness = Math.max(0, Math.min(255, brightness));
+
+        writeNode(NODE_HWEN, "0");
+        SystemClock.sleep(10);
+        writeNode(NODE_HWEN, "1");
+        writeReg(REG_GCCR, 0x80);
+        writeReg(REG_PATGO, 0x00);
+        writeReg(REG_FADEH, brightness);
+        writeReg(REG_FADEL, 0x00);
+        writeReg(REG_GCOLR, (color >> 16) & 0xff);
+        writeReg(REG_GCOLG, (color >> 8) & 0xff);
+        writeReg(REG_GCOLB, color & 0xff);
+        writeReg(REG_GCOLDIS, 0x00);
+        writeReg(REG_GCFG0, BPC_ZONE_MASK);
+        writeReg(REG_PATT0, (rise << 4) | 0x00);
+        writeReg(REG_PATT1, (fall << 4) | 0x00);
+        writeReg(REG_PATT2, 0x00);
+        writeReg(REG_PATT3, repeatCount > 0 ? Math.min(repeatCount, 255) : 0);
+        writeReg(REG_PATCFG, 0x07);
+        writeReg(REG_PATGO, 0x01);
+        mPowered = true;
+        mBpcActive = true;
+    }
+
+    /** True when a triangle breath of this shape can run on the chip: both
+     *  ramps must land on a non-zero quantization step. */
+    static boolean isBreathHardwareCompatible(int periodMs, int brightness) {
+        if (brightness <= 0) {
+            return false;
+        }
+        return quantizeTimerNibble(periodMs / 2) > 0
+                && quantizeTimerNibble(periodMs - periodMs / 2) > 0;
+    }
+
+    /** Upper-bound wall time of a finite hardware breath, with margin. The
+     *  chip self-stops; this only schedules the arbiter's cleanup callback. */
+    static long estimateBpcDurationMs(int periodMs, int repeatCount) {
+        int rise = quantizeTimerNibble(periodMs / 2);
+        int fall = quantizeTimerNibble(periodMs - periodMs / 2);
+        long cycleMs = TIMER_MS[rise] + HOLD_ZERO_MS + TIMER_MS[fall] + HOLD_ZERO_MS;
+        return cycleMs * repeatCount + 500;
+    }
+
+    /** Mirrors the driver's midpoint rounding in period_store. -1 when the
+     *  value exceeds the largest step. */
+    private static int quantizeTimerNibble(int ms) {
+        if (ms <= 0) {
+            return 0;
+        }
+        if (ms <= TIMER_MS[1]) {
+            return 1;
+        }
+        if (ms > TIMER_MS[TIMER_MS.length - 1]) {
+            return -1;
+        }
+        int nibble = 1;
+        for (int i = 1; i < TIMER_MS.length; i++) {
+            int lo = TIMER_MS[i - 1];
+            int hi = TIMER_MS[i];
+            if (ms >= lo && ms <= hi) {
+                nibble = ms < (lo + hi) / 2 ? i - 1 : i;
+            }
+        }
+        return nibble;
     }
 
     private void applyFrame(int[] colors, int brightness) throws IOException {

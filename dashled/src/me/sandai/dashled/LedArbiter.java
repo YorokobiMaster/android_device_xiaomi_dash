@@ -34,6 +34,7 @@ public final class LedArbiter {
     private Session mRendered;
     private long mRenderedSeq = -1;
     private EffectRunner mEffectRunner;
+    private Runnable mBpcDone;
 
     public final class Session {
         private final int category;
@@ -147,10 +148,60 @@ public final class LedArbiter {
         mRendered = active;
         mRenderedSeq = active.seq;
         if (active.effect != null) {
-            mEffectRunner = new EffectRunner(active);
-            mHandler.post(mEffectRunner);
+            if (isBpcCompatible(active.effect)) {
+                playBpcLocked(active);
+            } else {
+                mEffectRunner = new EffectRunner(active);
+                mHandler.post(mEffectRunner);
+            }
         } else {
             mBackend.submitFrame(active.colors, active.brightness);
+        }
+    }
+
+    /** The chip runs a single shared timing envelope with one global color, so
+     *  only a uniform triangle breath can be offloaded. */
+    private static boolean isBpcCompatible(DashLedEffect effect) {
+        if (effect.type != DashLedEffect.TYPE_BREATH) {
+            return false;
+        }
+        int color = effect.colors[0];
+        for (int i = 1; i < effect.colors.length; i++) {
+            if (effect.colors[i] != color) {
+                return false;
+            }
+        }
+        return Aw21024Backend.isBreathHardwareCompatible(effect.periodMs,
+                effect.brightness);
+    }
+
+    private void playBpcLocked(Session session) {
+        DashLedEffect effect = session.effect;
+        mBackend.submitBpcBreath(effect.colors[0], effect.brightness,
+                effect.periodMs, effect.repeatCount);
+        if (effect.repeatCount > 0) {
+            // The chip stops by itself; this only performs the arbiter-side
+            // cleanup, and may fire late after deep sleep without harm.
+            Runnable done = new Runnable() {
+                @Override
+                public void run() {
+                    final Runnable completed;
+                    synchronized (LedArbiter.this) {
+                        if (mBpcDone != this) {
+                            return;
+                        }
+                        mBpcDone = null;
+                        completed = session.onEffectDone;
+                        clear(session);
+                    }
+                    if (completed != null) {
+                        completed.run();
+                    }
+                }
+            };
+            mBpcDone = done;
+            mHandler.postDelayed(done, Aw21024Backend.estimateBpcDurationMs(
+                    effect.periodMs, effect.repeatCount));
         }
     }
 
@@ -158,6 +209,10 @@ public final class LedArbiter {
         if (mEffectRunner != null) {
             mHandler.removeCallbacks(mEffectRunner);
             mEffectRunner = null;
+        }
+        if (mBpcDone != null) {
+            mHandler.removeCallbacks(mBpcDone);
+            mBpcDone = null;
         }
     }
 
