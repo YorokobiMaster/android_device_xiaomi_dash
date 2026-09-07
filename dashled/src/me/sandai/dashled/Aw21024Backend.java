@@ -188,21 +188,22 @@ public final class Aw21024Backend {
      * sleep. Register order verified on-device; see
      * tmp/disposable-anytime/led-cal/aw21024-bpc-investigation.md.
      */
-    public void submitBpcBreath(int color, int brightness, int periodMs, int repeatCount) {
+    public void submitBpcBreath(int[] colors, int brightness, int periodMs, int repeatCount) {
+        final int[] copy = colors.clone();
         synchronized (mLock) {
             mPendingColors = null;
             mPendingOff = false;
         }
         mHandler.post(() -> {
             try {
-                startBpc(color, brightness, periodMs, repeatCount);
+                startBpc(copy, brightness, periodMs, repeatCount);
             } catch (IOException e) {
                 Log.e(TAG, "BPC start failed", e);
             }
         });
     }
 
-    private void startBpc(int color, int brightness, int periodMs, int repeatCount)
+    private void startBpc(int[] colors, int brightness, int periodMs, int repeatCount)
             throws IOException {
         int rise = quantizeTimerNibble(periodMs / 2);
         int fall = quantizeTimerNibble(periodMs - periodMs / 2);
@@ -215,10 +216,31 @@ public final class Aw21024Backend {
         writeReg(REG_PATGO, 0x00);
         writeReg(REG_FADEH, brightness);
         writeReg(REG_FADEL, 0x00);
-        writeReg(REG_GCOLR, (color >> 16) & 0xff);
-        writeReg(REG_GCOLG, (color >> 8) & 0xff);
-        writeReg(REG_GCOLB, color & 0xff);
-        writeReg(REG_GCOLDIS, 0x00);
+        boolean uniform = true;
+        for (int zone = 1; zone < ZONE_COUNT; zone++) {
+            if (colors[zone] != colors[0]) {
+                uniform = false;
+                break;
+            }
+        }
+        if (uniform) {
+            writeReg(REG_GCOLR, (colors[0] >> 16) & 0xff);
+            writeReg(REG_GCOLG, (colors[0] >> 8) & 0xff);
+            writeReg(REG_GCOLB, colors[0] & 0xff);
+            writeReg(REG_GCOLDIS, 0x00);
+        } else {
+            // Verified on-device: in pattern mode GCOLDIS is AC bit 4, per the
+            // datasheet; the per-channel COLs then carry each zone's color.
+            for (int zone = 0; zone < ZONE_COUNT; zone++) {
+                int pixel = zone + 3;
+                int[] components = {(colors[zone] >> 16) & 0xff,
+                        (colors[zone] >> 8) & 0xff, colors[zone] & 0xff};
+                for (int c = 0; c < 3; c++) {
+                    writeReg(0x4a + 3 * pixel + c, components[c]);
+                }
+            }
+            writeReg(REG_GCOLDIS, 0x10);
+        }
         writeReg(REG_GCFG0, BPC_ZONE_MASK);
         writeReg(REG_PATT0, (rise << 4) | 0x00);
         writeReg(REG_PATT1, (fall << 4) | 0x00);

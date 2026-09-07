@@ -159,17 +159,11 @@ public final class LedArbiter {
         }
     }
 
-    /** The chip runs a single shared timing envelope with one global color, so
-     *  only a uniform triangle breath can be offloaded. */
+    /** The chip runs a single shared timing envelope, so any triangle breath
+     *  offloads; per-zone colors go through the per-channel COL path. */
     private static boolean isBpcCompatible(DashLedEffect effect) {
         if (effect.type != DashLedEffect.TYPE_BREATH) {
             return false;
-        }
-        int color = effect.colors[0];
-        for (int i = 1; i < effect.colors.length; i++) {
-            if (effect.colors[i] != color) {
-                return false;
-            }
         }
         return Aw21024Backend.isBreathHardwareCompatible(effect.periodMs,
                 effect.brightness);
@@ -177,7 +171,7 @@ public final class LedArbiter {
 
     private void playBpcLocked(Session session) {
         DashLedEffect effect = session.effect;
-        mBackend.submitBpcBreath(effect.colors[0], effect.brightness,
+        mBackend.submitBpcBreath(effect.colors, effect.brightness,
                 effect.periodMs, effect.repeatCount);
         if (effect.repeatCount > 0) {
             // The chip stops by itself; this only performs the arbiter-side
