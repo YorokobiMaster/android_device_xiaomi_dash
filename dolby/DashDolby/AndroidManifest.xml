@@ -14,7 +14,6 @@
         android:allowBackup="false"
         android:defaultToDeviceProtectedStorage="true"
         android:directBootAware="true"
-        android:icon="@drawable/ic_dolby"
         android:label="@string/app_name"
         android:persistent="true"
         android:supportsRtl="true"
@@ -34,12 +33,6 @@
             <meta-data
                 android:name="com.android.settings.group_key"
                 android:value="audio_category" />
-            <meta-data
-                android:name="com.android.settings.icon"
-                android:resource="@drawable/ic_dolby" />
-            <meta-data
-                android:name="com.android.settings.icon_tintable"
-                android:value="true" />
             <meta-data
                 android:name="com.android.settings.summary"
                 android:resource="@string/dolby_settings_summary" />

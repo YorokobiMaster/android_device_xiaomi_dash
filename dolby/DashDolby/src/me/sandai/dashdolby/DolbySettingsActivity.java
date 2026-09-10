@@ -127,7 +127,6 @@ public class DolbySettingsActivity extends CollapsingToolbarBaseActivity {
                     int preset = Integer.parseInt((String) newValue);
                     mController.setIeqPreset(profile, preset);
                     if (preset == 0) {
-                        mIeqPreset.setValue((String) newValue);
                         requireView().post(() -> startActivity(
                                 new Intent(requireContext(), EqualizerActivity.class)));
                     }

@@ -74,10 +74,6 @@ public class DolbyAudioEffect extends AudioEffect {
         checkStatus(setParameter(OPERATION, buf));
     }
 
-    public boolean isDsOn() {
-        return getIntParam(PARAM_DS_ON) > 0;
-    }
-
     public void setDsOn(boolean on) {
         setIntParam(PARAM_DS_ON, on ? 1 : 0);
         setEnabled(on);
@@ -85,10 +81,6 @@ public class DolbyAudioEffect extends AudioEffect {
 
     public int getProfileCount() {
         return getIntParam(PARAM_PROFILE_COUNT);
-    }
-
-    public int getActiveProfile() {
-        return getIntParam(PARAM_ACTIVE_PROFILE);
     }
 
     public void setActiveProfile(int profile) {

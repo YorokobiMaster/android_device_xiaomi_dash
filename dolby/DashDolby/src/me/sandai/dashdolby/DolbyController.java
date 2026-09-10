@@ -152,10 +152,6 @@ public class DolbyController {
         }
     }
 
-    public int getProfileCount() {
-        return mEffect != null ? mEffect.getProfileCount() : 0;
-    }
-
     public int getActiveProfile() {
         return mPrefs.getInt(KEY_PROFILE, 0);
     }

@@ -53,9 +53,10 @@ public class EqualizerPreference extends Preference {
         mEqualizerView = (EqualizerView) holder.findViewById(R.id.equalizer_view);
         mEqualizerView.setGains(mGains);
         mEqualizerView.setOnBandChangeListener((band, gain, finished) -> {
+            boolean changed = mGains[band] != gain;
             mGains[band] = gain;
             updateSelectedBand(band, gain);
-            if (mListener != null) {
+            if (mListener != null && (changed || finished)) {
                 mListener.onGainsChanged(mGains.clone(), finished);
             }
         });
