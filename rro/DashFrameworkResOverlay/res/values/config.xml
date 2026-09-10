@@ -13,8 +13,7 @@
          revocations; the LED app must never rewrite listener grants. -->
     <string name="config_defaultListenerAccessPackages" translatable="false">me.sandai.dashled</string>
 
-    <!-- Smart display is the dash default; regular always-on display remains
-         available as an explicit alternative. -->
+    <!-- Always-on display is opt-in and independent of DashWake gestures. -->
     <bool name="config_dozeAlwaysOnEnabled">false</bool>
 
     <!-- The retained MediaTek overlay sets the legacy doze brightness to 5.

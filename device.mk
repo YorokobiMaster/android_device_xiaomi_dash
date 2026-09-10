@@ -1,4 +1,4 @@
-# Copyright (C) 2026 @YorokobiMaster
+# Copyright (C) 2026 GitHub @YorokobiMaster
 # SPDX-License-Identifier: Apache-2.0
 
 DEVICE_PATH := device/xiaomi/dash
@@ -25,7 +25,7 @@ DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := \
 
 PRODUCT_SOONG_NAMESPACES += \
     $(DEVICE_PATH) \
-    $(DEVICE_PATH)/power \
+    $(DEVICE_PATH)/wake \
     vendor/xiaomi/dash
 
 # Bluetooth profiles exposed by the stock phone product.
@@ -67,11 +67,9 @@ PRODUCT_PACKAGES += \
 
 PRODUCT_PACKAGES += \
     DashApertureOverlay \
-    DashAOD \
-    DashAOV \
     DashCharging \
     DashDolby \
-    DashDt2w \
+    DashWake \
     DashEyeCare \
     DashFrameworkResOverlay \
     DashLedService \

@@ -1,0 +1,35 @@
+// Copyright (C) 2026 GitHub @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+soong_namespace {
+}
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_app {
+    name: "DashWake",
+    srcs: ["src/**/*.java", "src/**/*.aidl"],
+    static_libs: ["SettingsLibTile"],
+    resource_dirs: ["res"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    jni_libs: ["libdashwake_jni"],
+    required: ["libdashwake_jni"],
+}
+
+cc_library_shared {
+    name: "libdashwake_jni",
+    srcs: ["jni/DashWakeJni.cpp"],
+    shared_libs: ["liblog"],
+    header_libs: ["jni_headers"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    system_ext_specific: true,
+}

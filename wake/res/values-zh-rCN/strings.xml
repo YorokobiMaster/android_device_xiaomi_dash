@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 GitHub @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="pickup_wake_title">抬起唤醒</string>
+    <string name="pickup_wake_summary">拿起手机时唤醒锁屏</string>
+    <string name="gaze_wake_title">注视唤醒</string>
+    <string name="gaze_wake_summary">注视手机时唤醒锁屏</string>
+</resources>

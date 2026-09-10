@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Copyright (C) 2026 @YorokobiMaster
+    Copyright (C) 2026 GitHub @YorokobiMaster
     SPDX-License-Identifier: Apache-2.0
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
@@ -8,7 +8,7 @@
     <integer name="config_deviceLightCapabilities">0</integer>
 
     <!-- Check the proximity sensor before waking the screen. The panel sits
-         flush in the pocket and stock-style wake gestures (DashDt2w, pickup)
+         flush in the pocket and wake gestures handled by DashWake
          otherwise fire on leg contact. -->
     <bool name="config_proximityCheckOnWake">true</bool>
 

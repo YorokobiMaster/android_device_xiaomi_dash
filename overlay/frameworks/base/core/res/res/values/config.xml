@@ -36,8 +36,8 @@
     <!-- Whether device supports double tap to wake -->
     <bool name="config_supportDoubleTapWake">true</bool>
 
-    <!-- DashAOD backs the stock pickup setting with the vendor wake-up sensor. -->
-    <bool name="config_dozePulsePickup">true</bool>
+    <!-- DashWake owns pickup wake and its setting; do not expose the Doze gesture. -->
+    <bool name="config_dozePulsePickup">false</bool>
 
     <!-- DashFod arms the fingerprint extension only after Doze is visible. -->
     <bool name="config_screen_off_udfps_enabled">true</bool>
