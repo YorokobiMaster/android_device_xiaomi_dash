@@ -65,3 +65,5 @@ on property:sys.boot_completed=1
 # Vendor disables MGLRU during post-fs-data; enable it after that stage.
 on boot
     write /sys/kernel/mm/lru_gen/enabled 7
+    # Override transparent_hugepage=never for applications requesting THP.
+    write /sys/kernel/mm/transparent_hugepage/enabled madvise
