@@ -373,7 +373,7 @@ public final class DashFodApplication extends Application {
     }
 
     private void clearKeyguardGate(String reason) {
-        mKeyguardAuthGate.onTerminal();
+        mKeyguardAuthGate.reset();
         Log.i(TAG, "gate clear=" + reason + " state=" + mKeyguardAuthGate);
     }
 
@@ -484,12 +484,6 @@ public final class DashFodApplication extends Application {
 
             mBinder = binder;
             IXiaomiFingerprint remote = IXiaomiFingerprint.Stub.asInterface(binder);
-            if (remote == null) {
-                reject(binder, deathRecipient);
-                Log.e(TAG, "connection result=null-interface");
-                return false;
-            }
-
             try {
                 int version = remote.getInterfaceVersion();
                 String hash = remote.getInterfaceHash();

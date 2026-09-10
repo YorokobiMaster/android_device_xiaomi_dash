@@ -82,10 +82,6 @@ final class KeyguardAuthGate {
         return Action.NONE;
     }
 
-    void onTerminal() {
-        clear();
-    }
-
     void reset() {
         clear();
     }

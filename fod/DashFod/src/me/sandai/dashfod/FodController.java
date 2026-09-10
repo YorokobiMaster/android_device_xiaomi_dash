@@ -18,7 +18,6 @@ final class FodController {
     private enum Phase {
         IDLE,
         ACTIVE,
-        CLEANUP,
         CLEANUP_DEBT,
     }
 
@@ -46,12 +45,10 @@ final class FodController {
     }
 
     void onStartup() {
-        setIdle();
         reconnectAndCleanup("startup");
     }
 
     void onVendorDeath() {
-        setIdle();
         reconnectAndCleanup("vendor-death");
     }
 
@@ -191,9 +188,6 @@ final class FodController {
     }
 
     private boolean runCleanup(CleanupKind cleanupKind, String reason) {
-        mPhase = Phase.CLEANUP;
-        mOperation = null;
-        mCleanupKind = cleanupKind;
         mLog.accept("cleanup reason=" + reason + " kind=" + cleanupKind
                 + " desired=disarmed");
 

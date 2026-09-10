@@ -120,11 +120,11 @@ public final class KeyguardAuthGateTest {
     }
 
     @Test
-    public void terminalAndResetClearWithoutReplay() {
+    public void resetClearsPendingAndDispatchedWithoutReplay() {
         KeyguardAuthGate gate = new KeyguardAuthGate();
         assertEquals(NONE, gate.onBiometricState(true));
         assertEquals(NONE, gate.onAuthenticationStart(false));
-        gate.onTerminal();
+        gate.reset();
         assertEquals(NONE, gate.onScreenOn());
         assertEquals(NONE, gate.onBiometricState(true));
 
