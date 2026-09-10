@@ -1,4 +1,4 @@
-// Copyright (C) 2026 @YorokobiMaster
+// Copyright (C) 2026 GitHub @YorokobiMaster
 // SPDX-License-Identifier: Apache-2.0
 
 package me.sandai.dashled.aidl;
@@ -11,7 +11,7 @@ import me.sandai.dashled.aidl.IDashLedSession;
  * "me.sandai.dashled.BIND" on package "me.sandai.dashled".
  *
  * Callers must hold me.sandai.dashled.permission.CONTROL and be granted in
- * Settings > Notifications > LED apertures > App access, otherwise
+ * Settings > Notifications > LED apertures > Apps allowed to control the ring light, otherwise
  * acquireSession throws SecurityException.
  */
 interface IDashLedManager {

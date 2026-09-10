@@ -1,15 +1,18 @@
 /*
- * Copyright (C) 2026 @YorokobiMaster
+ * Copyright (C) 2026 GitHub @YorokobiMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 package me.sandai.dashled;
 
+import android.app.NotificationManager;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.provider.Settings;
 
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
@@ -57,6 +60,14 @@ public class LedSettingsActivity extends CollapsingToolbarBaseActivity {
             mNotifEnabled.setOnPreferenceChangeListener(this);
             mNotifColor.setOnPreferenceChangeListener(this);
 
+            findPreference("notification_access").setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                        .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                                new ComponentName(requireContext(), LedNotificationListener.class)
+                                        .flattenToString()));
+                return true;
+            });
+
             Preference notifApps = findPreference("notif_apps");
             notifApps.setOnPreferenceClickListener(preference -> {
                 startActivity(new Intent(requireContext(), NotificationAppsActivity.class));
@@ -67,11 +78,16 @@ public class LedSettingsActivity extends CollapsingToolbarBaseActivity {
         @Override
         public void onResume() {
             super.onResume();
+            LedCore.get(requireContext()).arbiter().onWake();
             refresh();
             refreshAppAccess();
         }
 
         private void refresh() {
+            boolean hasAccess = requireContext().getSystemService(NotificationManager.class)
+                    .isNotificationListenerAccessGranted(
+                            new ComponentName(requireContext(), LedNotificationListener.class));
+            findPreference("notification_access").setVisible(!hasAccess);
             mMaster.setChecked(DashLedPrefs.isMasterEnabled(requireContext()));
             mNotifEnabled.setChecked(DashLedPrefs.isNotifEnabled(requireContext()));
             mNotifColor.setValue(String.format(Locale.US, "%06X",
@@ -87,6 +103,7 @@ public class LedSettingsActivity extends CollapsingToolbarBaseActivity {
                 Preference empty = new Preference(requireContext());
                 empty.setTitle(R.string.app_access_empty);
                 empty.setEnabled(false);
+                empty.setPersistent(false);
                 mAppAccess.addPreference(empty);
                 return;
             }
@@ -94,6 +111,7 @@ public class LedSettingsActivity extends CollapsingToolbarBaseActivity {
                 ApplicationInfo app = info.applicationInfo;
                 SwitchPreferenceCompat pref = new SwitchPreferenceCompat(requireContext());
                 pref.setKey("allow_" + info.packageName);
+                pref.setPersistent(false);
                 pref.setTitle(app.loadLabel(pm));
                 pref.setSummary(info.packageName);
                 pref.setIcon(app.loadIcon(pm));

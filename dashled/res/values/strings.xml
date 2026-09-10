@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2026 @YorokobiMaster
+     Copyright (C) 2026 GitHub @YorokobiMaster
 
      SPDX-License-Identifier: Apache-2.0
 -->
@@ -17,8 +17,10 @@
     <string name="notif_apps_title">Apps</string>
     <string name="notif_apps_summary">Choose which apps light up the ring</string>
 
-    <string name="app_access_title">App access</string>
-    <string name="app_access_empty">No apps have requested LED apertures access</string>
+    <string name="app_access_title">Apps allowed to control the ring light</string>
+    <string name="app_access_empty">Install an app that uses the ring light API to add your own effects</string>
+    <string name="notification_access_title">Allow notification access</string>
+    <string name="notification_access_summary">Required to light the ring for notifications</string>
 
     <string name="color_white">White</string>
     <string name="color_red">Red</string>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 @YorokobiMaster
+ * Copyright (C) 2026 GitHub @YorokobiMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -66,8 +66,12 @@ public final class Aw21024Backend {
     private static final int HOLD_ZERO_MS = 40;
 
     private final Object mLock = new Object();
-    private final HandlerThread mThread;
     private final Handler mHandler;
+    private final NodeWriter mWriter;
+
+    interface NodeWriter {
+        void write(String path, String value) throws IOException;
+    }
 
     private boolean mPowered;
     private boolean mBpcActive;
@@ -76,11 +80,23 @@ public final class Aw21024Backend {
     private int[] mPendingColors;
     private int mPendingBrightness;
     private boolean mPendingOff;
+    private int mPendingPeriodMs;
+    private int mPendingRepeatCount;
+    private Runnable mPendingStarted;
 
     public Aw21024Backend() {
-        mThread = new HandlerThread(TAG);
-        mThread.start();
-        mHandler = new Handler(mThread.getLooper());
+        this(createHandler(), Aw21024Backend::writeSysfsNode);
+    }
+
+    Aw21024Backend(Handler handler, NodeWriter writer) {
+        mHandler = handler;
+        mWriter = writer;
+    }
+
+    private static Handler createHandler() {
+        HandlerThread thread = new HandlerThread(TAG);
+        thread.start();
+        return new Handler(thread.getLooper());
     }
 
     /** The single LED thread; the arbiter renders effects on it too so all
@@ -96,6 +112,8 @@ public final class Aw21024Backend {
             mPendingColors = colors.clone();
             mPendingBrightness = brightness;
             mPendingOff = false;
+            mPendingPeriodMs = 0;
+            mPendingStarted = null;
             scheduleFlushLocked();
         }
     }
@@ -104,6 +122,8 @@ public final class Aw21024Backend {
         synchronized (mLock) {
             mPendingColors = null;
             mPendingOff = true;
+            mPendingPeriodMs = 0;
+            mPendingStarted = null;
             scheduleFlushLocked();
         }
     }
@@ -124,14 +144,22 @@ public final class Aw21024Backend {
         final int[] colors;
         final int brightness;
         final boolean off;
+        final int periodMs;
+        final int repeatCount;
+        final Runnable started;
         synchronized (mLock) {
             mFlushScheduled = false;
             mLastFlushUptimeMs = SystemClock.uptimeMillis();
             colors = mPendingColors;
             brightness = mPendingBrightness;
             off = mPendingOff;
+            periodMs = mPendingPeriodMs;
+            repeatCount = mPendingRepeatCount;
+            started = mPendingStarted;
             mPendingColors = null;
             mPendingOff = false;
+            mPendingPeriodMs = 0;
+            mPendingStarted = null;
             if (colors == null && !off) {
                 return;
             }
@@ -139,6 +167,9 @@ public final class Aw21024Backend {
         try {
             if (off) {
                 powerOff();
+            } else if (periodMs > 0) {
+                startBpc(colors, brightness, periodMs, repeatCount);
+                started.run();
             } else {
                 if (!mPowered || mBpcActive) {
                     powerOn();
@@ -147,6 +178,8 @@ public final class Aw21024Backend {
                 applyFrame(colors, brightness);
             }
         } catch (IOException e) {
+            mPowered = false;
+            mBpcActive = false;
             Log.e(TAG, "sysfs write failed", e);
         }
     }
@@ -185,22 +218,19 @@ public final class Aw21024Backend {
     /**
      * One-shot handoff to the chip's autonomous pattern controller: after this
      * sequence the LED breathes with no further CPU involvement, across deep
-     * sleep. Register order verified on-device; see
-     * tmp/disposable-anytime/led-cal/aw21024-bpc-investigation.md.
+     * sleep. Register order is documented in docs/hardware.md.
      */
-    public void submitBpcBreath(int[] colors, int brightness, int periodMs, int repeatCount) {
-        final int[] copy = colors.clone();
+    public void submitBpcBreath(int[] colors, int brightness, int periodMs, int repeatCount,
+            Runnable onStarted) {
         synchronized (mLock) {
-            mPendingColors = null;
+            mPendingColors = colors.clone();
+            mPendingBrightness = brightness;
             mPendingOff = false;
+            mPendingPeriodMs = periodMs;
+            mPendingRepeatCount = repeatCount;
+            mPendingStarted = onStarted;
+            scheduleFlushLocked();
         }
-        mHandler.post(() -> {
-            try {
-                startBpc(copy, brightness, periodMs, repeatCount);
-            } catch (IOException e) {
-                Log.e(TAG, "BPC start failed", e);
-            }
-        });
     }
 
     private void startBpc(int[] colors, int brightness, int periodMs, int repeatCount)
@@ -245,7 +275,7 @@ public final class Aw21024Backend {
         writeReg(REG_PATT0, (rise << 4) | 0x00);
         writeReg(REG_PATT1, (fall << 4) | 0x00);
         writeReg(REG_PATT2, 0x00);
-        writeReg(REG_PATT3, repeatCount > 0 ? Math.min(repeatCount, 255) : 0);
+        writeReg(REG_PATT3, repeatCount > 0 ? repeatCount : 0);
         writeReg(REG_PATCFG, 0x07);
         writeReg(REG_PATGO, 0x01);
         mPowered = true;
@@ -310,11 +340,15 @@ public final class Aw21024Backend {
         writeReg(REG_UPDATE, 0);
     }
 
-    private static void writeReg(int addr, int value) throws IOException {
+    private void writeReg(int addr, int value) throws IOException {
         writeNode(NODE_REG, String.format(Locale.US, "%02x %02x", addr, value));
     }
 
-    private static void writeNode(String path, String value) throws IOException {
+    private void writeNode(String path, String value) throws IOException {
+        mWriter.write(path, value);
+    }
+
+    private static void writeSysfsNode(String path, String value) throws IOException {
         try (FileOutputStream out = new FileOutputStream(path)) {
             out.write((value + "\n").getBytes(StandardCharsets.US_ASCII));
         }

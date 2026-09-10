@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2026 @YorokobiMaster
+     Copyright (C) 2026 GitHub @YorokobiMaster
 
      SPDX-License-Identifier: Apache-2.0
 -->
@@ -15,6 +15,12 @@
     <PreferenceCategory
         android:key="notif_category"
         android:title="@string/notif_category_title">
+
+        <Preference
+            android:key="notification_access"
+            android:title="@string/notification_access_title"
+            android:summary="@string/notification_access_summary"
+            android:persistent="false" />
 
         <SwitchPreferenceCompat
             android:key="notif_enabled"

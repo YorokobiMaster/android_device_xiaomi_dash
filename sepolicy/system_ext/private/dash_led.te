@@ -1,11 +1,11 @@
-# Copyright (C) 2026 @YorokobiMaster
+# Copyright (C) 2026 GitHub @YorokobiMaster
 # SPDX-License-Identifier: Apache-2.0
 
-# DashLedService (stock priv_app domain) drives the AW21024 camera ring LED
-# through its sysfs register nodes. A dedicated domain was tried and dropped:
-# the domain switch broke the app's basic service_manager finds, and every
-# priv-app on this device is either ours or AOSP's anyway (same trade-off as
-# dash_charging.te's system_app allow).
+# Only DashLED receives the app-side permission to write the ring registers.
+type dash_led, domain, coredomain;
+app_domain(dash_led)
+allow dash_led app_api_service:service_manager find;
+allow dash_led system_api_service:service_manager find;
 
 # The retained stock vendor policy labels the AW21024 nodes
 # vendor_sysfs_led_file via ueventd restorecon (vendor_file_contexts), which
@@ -16,9 +16,12 @@
 # during the checked compile.
 type vendor_sysfs_led_file;
 
+# Traverse /sys/class/leds and the vendor-labeled AW21024 directory.
+allow dash_led { sysfs_leds vendor_sysfs_led_file }:dir search;
+
 # Explicit permission list: rw_file_perms would pull in ioctl and trip the
 # domain.te no-arbitrary-ioctl neverallow.
-allow priv_app vendor_sysfs_led_file:file { getattr open read write };
+allow dash_led vendor_sysfs_led_file:file { getattr open read write };
 
 # init's builtin chmod in init.dash-system_ext.rc makes the nodes
 # world-writable at sys.boot_completed. init's generic pseudo-filesystem

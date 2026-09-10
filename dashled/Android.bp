@@ -1,8 +1,19 @@
-// Copyright (C) 2026 @YorokobiMaster
+// Copyright (C) 2026 GitHub @YorokobiMaster
 // SPDX-License-Identifier: Apache-2.0
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_test {
+    name: "DashLedTests",
+    srcs: ["tests/src/**/*.java"],
+    manifest: "tests/AndroidManifest.xml",
+    instrumentation_for: "DashLedService",
+    platform_apis: true,
+    certificate: "platform",
+    static_libs: ["androidx.test.runner", "androidx.test.ext.junit", "mockito-target-minus-junit4"],
+    test_suites: ["general-tests"],
 }
 
 // The AIDL is compiled straight into the app; third-party clients copy the

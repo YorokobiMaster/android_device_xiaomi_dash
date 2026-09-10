@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 @YorokobiMaster
+ * Copyright (C) 2026 GitHub @YorokobiMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -51,6 +51,7 @@ public class NotificationAppsActivity extends CollapsingToolbarBaseActivity {
                 String pkg = app.activityInfo.packageName;
                 SwitchPreferenceCompat pref = new SwitchPreferenceCompat(requireContext());
                 pref.setKey("notif_app_" + pkg);
+                pref.setPersistent(false);
                 pref.setTitle(app.loadLabel(pm));
                 pref.setSummary(pkg);
                 pref.setIcon(app.loadIcon(pm));

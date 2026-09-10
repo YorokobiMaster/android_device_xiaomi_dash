@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 @YorokobiMaster
+ * Copyright (C) 2026 GitHub @YorokobiMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,8 +20,6 @@ import java.util.Set;
 public final class DashLedPrefs {
 
     public static final String METADATA_CLIENT = "me.sandai.dashled.CLIENT";
-    public static final String METADATA_SETTINGS_ACTIVITY =
-            "me.sandai.dashled.SETTINGS_ACTIVITY";
 
     public static final int DEFAULT_NOTIF_COLOR = 0xffffff;
 
@@ -44,6 +42,11 @@ public final class DashLedPrefs {
     public static void registerOnChangeListener(Context context,
             SharedPreferences.OnSharedPreferenceChangeListener listener) {
         prefs(context).registerOnSharedPreferenceChangeListener(listener);
+    }
+
+    public static void unregisterOnChangeListener(Context context,
+            SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        prefs(context).unregisterOnSharedPreferenceChangeListener(listener);
     }
 
     public static boolean isMasterEnabled(Context context) {

@@ -1,4 +1,4 @@
-# Copyright (C) 2026 @YorokobiMaster
+# Copyright (C) 2026 GitHub @YorokobiMaster
 # SPDX-License-Identifier: Apache-2.0
 
 # The retained stock fstab mounts mi_ext directories over Lineage-owned
@@ -48,9 +48,9 @@ on early-boot
     chown root graphics /dev/mi_display/disp_feature
     chmod 0666 /dev/mi_display/disp_feature
 
-# AW21024 camera ring LED register access for DashLedService (priv_app
+# AW21024 camera ring LED register access for DashLedService (dash_led
 # domain). The world-writable Unix mode is gated by SELinux: the nodes carry
-# the stock vendor_sysfs_led_file label and only priv_app (plus stock
+# the stock vendor_sysfs_led_file label and only dash_led (plus stock
 # mtk_hal_light/system_app) may write them. boot_completed ordering wins
 # against the stock odm init_leds.rc "on boot" block, which re-chowns these
 # nodes to system:system 0664 (observed ctime ~7s). Use init builtins, not a

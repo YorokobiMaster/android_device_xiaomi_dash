@@ -1,4 +1,4 @@
-// Copyright (C) 2026 @YorokobiMaster
+// Copyright (C) 2026 GitHub @YorokobiMaster
 // SPDX-License-Identifier: Apache-2.0
 
 package me.sandai.dashled.aidl;
@@ -12,7 +12,7 @@ parcelable DashLedCapabilities {
     int zoneCount;
     boolean rgbSupported;
     boolean brightnessSupported;
-    /** Hardware-autonomous effects; v1 renders everything in software. */
+    /** Hardware-autonomous effects; unsupported parameters use software rendering. */
     boolean hardwareBreathingSupported;
     boolean hardwareGradientSupported;
     /** Backend coalescing interval; clients may call faster than this. */

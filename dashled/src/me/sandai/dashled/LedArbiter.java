@@ -1,14 +1,17 @@
 /*
- * Copyright (C) 2026 @YorokobiMaster
+ * Copyright (C) 2026 GitHub @YorokobiMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 package me.sandai.dashled;
 
+import android.app.AlarmManager;
 import android.os.Handler;
+import android.os.SystemClock;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.LongSupplier;
 
 import me.sandai.dashled.aidl.DashLedEffect;
 
@@ -27,6 +30,8 @@ public final class LedArbiter {
 
     private final Aw21024Backend mBackend;
     private final Handler mHandler;
+    private final AlarmManager mAlarmManager;
+    private final LongSupplier mElapsedRealtime;
     private final List<Session> mSessions = new ArrayList<>();
 
     private boolean mOutputEnabled = true;
@@ -34,7 +39,7 @@ public final class LedArbiter {
     private Session mRendered;
     private long mRenderedSeq = -1;
     private EffectRunner mEffectRunner;
-    private Runnable mBpcDone;
+    private BpcCompletion mBpcDone;
 
     public final class Session {
         private final int category;
@@ -48,15 +53,18 @@ public final class LedArbiter {
         private Session(int category) {
             this.category = category;
         }
-
-        public int getCategory() {
-            return category;
-        }
     }
 
-    public LedArbiter(Aw21024Backend backend, Handler handler) {
+    public LedArbiter(Aw21024Backend backend, Handler handler, AlarmManager alarmManager) {
+        this(backend, handler, alarmManager, SystemClock::elapsedRealtime);
+    }
+
+    LedArbiter(Aw21024Backend backend, Handler handler, AlarmManager alarmManager,
+            LongSupplier elapsedRealtime) {
         mBackend = backend;
         mHandler = handler;
+        mAlarmManager = alarmManager;
+        mElapsedRealtime = elapsedRealtime;
     }
 
     public synchronized Session acquire(int category) {
@@ -162,7 +170,7 @@ public final class LedArbiter {
     /** The chip runs a single shared timing envelope, so any triangle breath
      *  offloads; per-zone colors go through the per-channel COL path. */
     private static boolean isBpcCompatible(DashLedEffect effect) {
-        if (effect.type != DashLedEffect.TYPE_BREATH) {
+        if (effect.type != DashLedEffect.TYPE_BREATH || effect.repeatCount > 255) {
             return false;
         }
         return Aw21024Backend.isBreathHardwareCompatible(effect.periodMs,
@@ -171,31 +179,65 @@ public final class LedArbiter {
 
     private void playBpcLocked(Session session) {
         DashLedEffect effect = session.effect;
+        final BpcCompletion done = effect.repeatCount > 0 ? new BpcCompletion(session) : null;
+        mBpcDone = done;
         mBackend.submitBpcBreath(effect.colors, effect.brightness,
-                effect.periodMs, effect.repeatCount);
-        if (effect.repeatCount > 0) {
-            // The chip stops by itself; this only performs the arbiter-side
-            // cleanup, and may fire late after deep sleep without harm.
-            Runnable done = new Runnable() {
-                @Override
-                public void run() {
-                    final Runnable completed;
+                effect.periodMs, effect.repeatCount, () -> {
                     synchronized (LedArbiter.this) {
-                        if (mBpcDone != this) {
-                            return;
+                        if (done != null && mBpcDone == done) {
+                            long duration = Aw21024Backend.estimateBpcDurationMs(
+                                    effect.periodMs, effect.repeatCount);
+                            done.deadlineElapsedMs = mElapsedRealtime.getAsLong() + duration;
+                            // Handler retains sub-five-second precision while awake;
+                            // AlarmManager applies a five-second minimum for app UIDs.
+                            mHandler.postDelayed(done, duration);
+                            mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME,
+                                    done.deadlineElapsedMs, "DashLed:breath", done, mHandler);
                         }
-                        mBpcDone = null;
-                        completed = session.onEffectDone;
-                        clear(session);
                     }
-                    if (completed != null) {
-                        completed.run();
-                    }
+                });
+    }
+
+    /** Reconcile on screen-on too: Android may drop listener alarms when cached. */
+    public void onWake() {
+        final BpcCompletion done;
+        synchronized (this) {
+            done = mBpcDone;
+            if (done == null || done.deadlineElapsedMs == 0
+                    || mElapsedRealtime.getAsLong() < done.deadlineElapsedMs) {
+                return;
+            }
+        }
+        done.run();
+    }
+
+    private final class BpcCompletion implements Runnable, AlarmManager.OnAlarmListener {
+        private final Session session;
+        private long deadlineElapsedMs;
+
+        BpcCompletion(Session session) {
+            this.session = session;
+        }
+
+        @Override
+        public void onAlarm() {
+            run();
+        }
+
+        @Override
+        public void run() {
+            final Runnable completed;
+            synchronized (LedArbiter.this) {
+                if (mBpcDone != this) {
+                    return;
                 }
-            };
-            mBpcDone = done;
-            mHandler.postDelayed(done, Aw21024Backend.estimateBpcDurationMs(
-                    effect.periodMs, effect.repeatCount));
+                completed = session.onEffectDone;
+                // clear() cancels both completion paths before restoring another session.
+                clear(session);
+            }
+            if (completed != null) {
+                completed.run();
+            }
         }
     }
 
@@ -206,6 +248,9 @@ public final class LedArbiter {
         }
         if (mBpcDone != null) {
             mHandler.removeCallbacks(mBpcDone);
+            if (mBpcDone.deadlineElapsedMs != 0) {
+                mAlarmManager.cancel(mBpcDone);
+            }
             mBpcDone = null;
         }
     }
@@ -245,7 +290,7 @@ public final class LedArbiter {
                     }
                 }
                 done = completed;
-                if (done == null) {
+                if (mEffectRunner == this) {
                     mHandler.postDelayed(this, Aw21024Backend.MIN_FRAME_INTERVAL_MS);
                 }
             }

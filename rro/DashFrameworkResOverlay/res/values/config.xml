@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2026 @YorokobiMaster
+     Copyright (C) 2026 GitHub @YorokobiMaster
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
+    <!-- DashLED handles ring notifications. Keep the standard notification
+         and attention producers disabled while retaining the stock HAL. -->
+    <bool name="config_intrusiveNotificationLed">false</bool>
+    <bool name="config_useAttentionLight">false</bool>
+
+    <!-- Let NotificationManager apply the device default and persist user
+         revocations; the LED app must never rewrite listener grants. -->
+    <string name="config_defaultListenerAccessPackages" translatable="false">me.sandai.dashled</string>
+
     <!-- Smart display is the dash default; regular always-on display remains
          available as an explicit alternative. -->
     <bool name="config_dozeAlwaysOnEnabled">false</bool>

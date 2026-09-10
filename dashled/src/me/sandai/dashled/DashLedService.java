@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 @YorokobiMaster
+ * Copyright (C) 2026 GitHub @YorokobiMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -57,6 +57,19 @@ public class DashLedService extends Service {
         return mManager;
     }
 
+    @Override
+    public void onDestroy() {
+        DashLedPrefs.unregisterOnChangeListener(this, mGrantListener);
+        final List<SessionBinder> snapshot;
+        synchronized (mLiveSessions) {
+            snapshot = new ArrayList<>(mLiveSessions);
+        }
+        for (SessionBinder session : snapshot) {
+            session.doRelease();
+        }
+        super.onDestroy();
+    }
+
     private final IDashLedManager.Stub mManager = new IDashLedManager.Stub() {
         @Override
         public int getApiVersion() {
@@ -70,7 +83,7 @@ public class DashLedService extends Service {
             caps.zoneCount = Aw21024Backend.ZONE_COUNT;
             caps.rgbSupported = true;
             caps.brightnessSupported = true;
-            caps.hardwareBreathingSupported = false;
+            caps.hardwareBreathingSupported = true;
             caps.hardwareGradientSupported = false;
             caps.minFrameIntervalMs = Aw21024Backend.MIN_FRAME_INTERVAL_MS;
             return caps;
@@ -103,7 +116,7 @@ public class DashLedService extends Service {
             Binder.restoreCallingIdentity(token);
         }
         throw new SecurityException("grant this app in Settings > Notifications > "
-                + "LED apertures > App access first");
+                + "LED apertures > Apps allowed to control the ring light first");
     }
 
     private final class SessionBinder extends IDashLedSession.Stub
@@ -117,16 +130,19 @@ public class DashLedService extends Service {
             mSession = session;
             mOwnerUid = ownerUid;
             mClientToken = clientToken;
-            if (clientToken != null) {
-                try {
-                    clientToken.linkToDeath(this, 0);
-                } catch (RemoteException e) {
-                    mArbiter.release(session);
-                    throw new IllegalStateException("client token is already dead");
+            // Do not let binderDied release us before registration finishes.
+            synchronized (this) {
+                if (clientToken != null) {
+                    try {
+                        clientToken.linkToDeath(this, 0);
+                    } catch (RemoteException e) {
+                        mArbiter.release(session);
+                        throw new IllegalStateException("client token is already dead");
+                    }
                 }
-            }
-            synchronized (mLiveSessions) {
-                mLiveSessions.add(this);
+                synchronized (mLiveSessions) {
+                    mLiveSessions.add(this);
+                }
             }
         }
 
@@ -139,6 +155,7 @@ public class DashLedService extends Service {
         @Override
         public void setFrame(DashLedFrame frame) {
             checkOwner();
+            enforceClientAllowed(mOwnerUid);
             if (frame == null || frame.colors == null
                     || frame.colors.length != Aw21024Backend.ZONE_COUNT) {
                 throw new IllegalArgumentException(
@@ -151,6 +168,7 @@ public class DashLedService extends Service {
         @Override
         public void playEffect(DashLedEffect effect) {
             checkOwner();
+            enforceClientAllowed(mOwnerUid);
             if (effect == null || effect.colors == null
                     || effect.colors.length != Aw21024Backend.ZONE_COUNT) {
                 throw new IllegalArgumentException(

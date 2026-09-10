@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2026 @YorokobiMaster
+     Copyright (C) 2026 GitHub @YorokobiMaster
 
      SPDX-License-Identifier: Apache-2.0
 -->
@@ -17,8 +17,10 @@
     <string name="notif_apps_title">应用</string>
     <string name="notif_apps_summary">选择哪些应用的通知点亮灯环</string>
 
-    <string name="app_access_title">应用访问权限</string>
-    <string name="app_access_empty">暂无应用请求 LED 光圈访问权限</string>
+    <string name="app_access_title">允许控制灯环的应用</string>
+    <string name="app_access_empty">安装使用灯环 API 的应用，添加自己的灯效</string>
+    <string name="notification_access_title">允许读取通知</string>
+    <string name="notification_access_summary">通知亮灯需要此权限</string>
 
     <string name="color_white">白色</string>
     <string name="color_red">红色</string>

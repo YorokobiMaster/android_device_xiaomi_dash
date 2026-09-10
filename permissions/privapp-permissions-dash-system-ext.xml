@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2026 @YorokobiMaster
+     Copyright (C) 2026 GitHub @YorokobiMaster
 
      SPDX-License-Identifier: Apache-2.0
 -->
@@ -13,8 +13,5 @@
     </privapp-permissions>
     <privapp-permissions package="me.sandai.dashfod">
         <permission name="android.permission.MANAGE_USERS"/>
-    </privapp-permissions>
-    <privapp-permissions package="me.sandai.dashled">
-        <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
     </privapp-permissions>
 </permissions>
