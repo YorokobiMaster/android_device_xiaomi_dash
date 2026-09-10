@@ -66,6 +66,7 @@ public final class DashFodApplication extends Application {
     private DisplayManager.DisplayListener mDisplayListener;
     private volatile int mListenerGeneration;
     private Boolean mKeyguardFodAvailable;
+    private PinLayoutController mPinLayout;
 
     @Override
     public void onCreate() {
@@ -82,6 +83,8 @@ public final class DashFodApplication extends Application {
         mKeyguardManager = getSystemService(KeyguardManager.class);
         mPowerManager = getSystemService(PowerManager.class);
         mDisplayManager = getSystemService(DisplayManager.class);
+        mPinLayout = new PinLayoutController(this);
+        mPinLayout.start();
         mHandler.post(() -> {
             mController.onStartup();
             syncKeyguardFodAvailability("startup");
@@ -166,6 +169,7 @@ public final class DashFodApplication extends Application {
         mBiometricStateListener = new BiometricStateListener() {
             @Override
             public void onStateChanged(int state) {
+                mPinLayout.refresh("biometric-state");
                 int generation = mListenerGeneration;
                 mHandler.post(() -> {
                     if (generation != mListenerGeneration) {
@@ -181,6 +185,10 @@ public final class DashFodApplication extends Application {
                             + " action=" + action);
                     handleGateAction(action);
                 });
+            }
+            @Override
+            public void onEnrollmentsChanged(int userId, int sensorId, boolean hasEnrollments) {
+                mPinLayout.refresh("enrollment");
             }
         };
         try {
@@ -435,6 +443,7 @@ public final class DashFodApplication extends Application {
             Log.i(TAG, "lifecycle edge=" + edge + " reason=" + reason
                     + " operation=" + operation + " generation=" + generation);
             event.accept(operation);
+            mPinLayout.refresh("authentication-" + edge);
         });
     }
 

@@ -57,7 +57,7 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
 PRODUCT_SYSTEM_PROPERTIES += \
     ro.miui.build.region=cn
 
-PRODUCT_PACKAGES += DashFod
+PRODUCT_PACKAGES += DashFod DashPinLowOverlay
 
 # lineage_dash does not inherit build/make/target/product/base_system_ext.mk,
 # so the ashmem allocator service is never installed even though the frozen
