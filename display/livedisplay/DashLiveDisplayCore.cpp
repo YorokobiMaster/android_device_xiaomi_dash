@@ -8,6 +8,8 @@
 
 #include <android-base/logging.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <utility>
 
@@ -19,6 +21,7 @@ namespace {
 constexpr int32_t kDisplayId = 0;
 constexpr int32_t kFeatureScreenAdapt = 0;
 constexpr int32_t kFeatureScreenStandard = 2;
+constexpr int32_t kFeatureScreenEyeCare = 3;
 constexpr int32_t kFeatureScreenExpert = 26;
 constexpr int32_t kNoCookie = 0xff;
 // Stock default screen_color_level (SCREEN_COLOR_NATURE).
@@ -118,6 +121,68 @@ ApplyResult DashLiveDisplayCore::setMode(int32_t id, bool makeDefault) {
   return ApplyResult::kOk;
 }
 
+bool DashLiveDisplayCore::eyeCareTransitionPending() {
+  std::lock_guard lock(mutex_);
+  return eyecare_transition_;
+}
+
+ApplyResult DashLiveDisplayCore::applyEyeCareFromProperty(Clock::time_point now) {
+  std::lock_guard lock(mutex_);
+
+  ApplyResult result = ensureConnectedLocked();
+  if (result != ApplyResult::kOk) return result;
+
+  const int32_t target = requestedEyeCareLocked();
+  if (target != eyecare_target_) {
+    // Only activation/deactivation fades. Slider changes take effect at once,
+    // including during fade-in, so the thumb never drags an animation behind it.
+    eyecare_transition_ = (target == 0) != (eyecare_target_ == 0);
+    eyecare_start_level_ = eyecare_level_;
+    eyecare_start_time_ = now;
+    eyecare_target_ = target;
+  }
+
+  int32_t level = target;
+  if (eyecare_transition_) {
+    constexpr double kFadeMilliseconds = 300.0;
+    const double elapsed = std::chrono::duration<double, std::milli>(
+        now - eyecare_start_time_).count();
+    const double progress = std::clamp(elapsed / kFadeMilliseconds, 0.0, 1.0);
+    level = static_cast<int32_t>(std::lround(
+        eyecare_start_level_ + (target - eyecare_start_level_) * progress));
+    if (progress == 1.0) eyecare_transition_ = false;
+  }
+  if (level == eyecare_level_) return ApplyResult::kOk;
+  return applyEyeCareLocked(level);
+}
+
+ApplyResult DashLiveDisplayCore::applyEyeCareLocked(int32_t level) {
+  HalStatus status = hal_->setFeature(kDisplayId, kFeatureScreenEyeCare, level, kNoCookie);
+  if (status != HalStatus::kOk) {
+    LOG(ERROR) << "setFeature(displayId=" << kDisplayId << ", feature=" << kFeatureScreenEyeCare
+               << ", value=" << level << ", cookie=" << kNoCookie << ") failed";
+    // Wake the reconnect worker on ordinary failures too: property events
+    // are edge-triggered and will not repeat an unsuccessful request.
+    markDisconnectedLocked();
+    return status == HalStatus::kDead ? ApplyResult::kHalDead : ApplyResult::kHalError;
+  }
+  eyecare_level_ = level;
+  if (!eyecare_transition_) LOG(INFO) << "Set eye care level " << level;
+  return ApplyResult::kOk;
+}
+
+int32_t DashLiveDisplayCore::requestedEyeCareLocked() {
+  const std::string value = property_get_(kEyeCareProperty);
+  if (value.empty() || value == "0") return 0;
+  char* end = nullptr;
+  const long level = std::strtol(value.c_str(), &end, 10);
+  if (end != value.c_str() && *end == '\0' && level >= 58 && level <= 255) {
+    return static_cast<int32_t>(level);
+  }
+  LOG(WARNING) << "Ignoring malformed " << kEyeCareProperty;
+  return 0;
+}
+
 ApplyResult DashLiveDisplayCore::ensureConnected() {
   std::lock_guard lock(mutex_);
   return ensureConnectedLocked();
@@ -161,6 +226,13 @@ ApplyResult DashLiveDisplayCore::ensureConnectedLocked() {
     return result;
   }
   LOG(INFO) << "Applied display mode " << target << (replay ? " (replayed)" : " (default)");
+
+  // The property is authoritative even if it changed while disconnected.
+  // Explicitly replay off too: reconnecting the client need not reset the HAL.
+  eyecare_transition_ = false;
+  eyecare_target_ = requestedEyeCareLocked();
+  result = applyEyeCareLocked(eyecare_target_);
+  if (result != ApplyResult::kOk) return result;
   return ApplyResult::kOk;
 }
 
@@ -199,6 +271,7 @@ int32_t DashLiveDisplayCore::persistedDefaultLocked() {
 
 void DashLiveDisplayCore::markDisconnectedLocked() {
   hal_connected_ = false;
+  eyecare_transition_ = false;
   hal_.reset();
   disconnected_cv_.notify_all();
 }

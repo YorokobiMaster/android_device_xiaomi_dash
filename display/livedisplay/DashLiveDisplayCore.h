@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -21,6 +22,9 @@
 namespace dash {
 
 constexpr char kPersistModeProperty[] = "persist.dash.livedisplay.mode";
+// Derived from Night Light by DashEyeCare; the service only reads it. This keeps the
+// warm eye-care toggle independent from LineageOS' own reading enhancement.
+constexpr char kEyeCareProperty[] = "sys.dash.livedisplay.eyecare";
 constexpr int32_t kDefaultModeId = 1;  // stock default: original color
 
 struct SetFeatureCommand {
@@ -69,6 +73,13 @@ class DashLiveDisplayCore {
   int32_t defaultModeId();
   ApplyResult setMode(int32_t id, bool makeDefault);
 
+  // Warm eye-care (displayfeature SCREEN_EYECARE), toggled through
+  // kEyeCareProperty by DashEyeCare. Night Light owns persistence;
+  // the service only applies the property value and replays it on connect.
+  using Clock = std::chrono::steady_clock;
+  ApplyResult applyEyeCareFromProperty(Clock::time_point now = Clock::now());
+  bool eyeCareTransitionPending();
+
   // Monitor-thread interface. ensureConnected() connects when the link is
   // down and then applies the persisted default (first connect) or replays
   // the current profile (HAL reconnect). No-op while connected.
@@ -79,7 +90,9 @@ class DashLiveDisplayCore {
  private:
   ApplyResult ensureConnectedLocked();
   ApplyResult applyLocked(int32_t id);
+  ApplyResult applyEyeCareLocked(int32_t level);
   int32_t persistedDefaultLocked();
+  int32_t requestedEyeCareLocked();
   void markDisconnectedLocked();
 
   std::mutex mutex_;
@@ -93,6 +106,11 @@ class DashLiveDisplayCore {
   // default instead of replaying current_id_.
   bool applied_ = false;
   int32_t current_id_ = kDefaultModeId;
+  int32_t eyecare_level_ = 0;
+  int32_t eyecare_target_ = 0;
+  int32_t eyecare_start_level_ = 0;
+  Clock::time_point eyecare_start_time_{};
+  bool eyecare_transition_ = false;
 };
 
 }  // namespace dash

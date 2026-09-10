@@ -1,9 +1,6 @@
-// Copyright (C) 2026 @YorokobiMaster
+// Copyright (C) 2026 GitHub @YorokobiMaster
 // SPDX-License-Identifier: Apache-2.0
-
-package {
-    default_applicable_licenses: ["Android-Apache-2.0"],
-}
+package { default_applicable_licenses: ["Android-Apache-2.0"] }
 
 android_app {
     name: "DashEyeCare",
@@ -12,7 +9,12 @@ android_app {
     platform_apis: true,
     certificate: "platform",
     system_ext_specific: true,
-    optimize: {
-        enabled: true,
-    },
+    optimize: { enabled: true },
+}
+java_test_host {
+    name: "DashEyeCareHostTest",
+    srcs: ["src/me/sandai/dasheyecare/NightLightLevel.java", "tests/**/*.java"],
+    static_libs: ["junit"],
+    test_suites: ["general-tests"],
+    test_options: { unit_test: true },
 }

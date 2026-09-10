@@ -1,2 +1,3 @@
 user=_app seinfo=platform isPrivApp=true name=me.sandai.dashfod domain=priv_app type=privapp_data_file levelFrom=user
 user=_app seinfo=platform isPrivApp=true name=me.sandai.dashled domain=dash_led type=privapp_data_file levelFrom=user
+user=_app seinfo=platform name=me.sandai.dasheyecare domain=dash_eyecare type=app_data_file levelFrom=user

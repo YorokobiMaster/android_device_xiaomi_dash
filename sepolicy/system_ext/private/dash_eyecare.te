@@ -1,0 +1,8 @@
+# Copyright (C) 2026 GitHub @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+type dash_eyecare, domain, coredomain;
+app_domain(dash_eyecare)
+allow dash_eyecare app_api_service:service_manager find;
+allow dash_eyecare system_api_service:service_manager find;
+set_prop(dash_eyecare, dash_eyecare_prop)

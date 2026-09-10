@@ -26,4 +26,16 @@
          is absent from LineageOS. Product overlays outrank the retained vendor
          overlay, so route doze back to SystemUI. -->
     <string name="config_dozeComponent" translatable="false">com.android.systemui/com.android.systemui.doze.DozeService</string>
+    <!-- Night Light UI/scheduling is retained; DashEyeCare drives vendor feature 3.
+         Set every channel polynomial to 1 so the framework cannot double-tint. -->
+    <string-array name="config_nightDisplayColorTemperatureCoefficients">
+        <item>0.0</item><item>0.0</item><item>1.0</item>
+        <item>0.0</item><item>0.0</item><item>1.0</item>
+        <item>0.0</item><item>0.0</item><item>1.0</item>
+    </string-array>
+    <string-array name="config_nightDisplayColorTemperatureCoefficientsNative">
+        <item>0.0</item><item>0.0</item><item>1.0</item>
+        <item>0.0</item><item>0.0</item><item>1.0</item>
+        <item>0.0</item><item>0.0</item><item>1.0</item>
+    </string-array>
 </resources>

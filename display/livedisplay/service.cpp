@@ -7,6 +7,7 @@
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
 #include <android-base/logging.h>
+#include <sys/system_properties.h>
 
 #include <chrono>
 #include <memory>
@@ -34,6 +35,35 @@ using aidl::vendor::lineage::livedisplay::IDisplayModes;
                                                  : std::chrono::seconds(10));
     }
     failures = 0;
+  }
+}
+
+// The eye-care controller lives in DashEyeCare, which writes
+// kEyeCareProperty directly. This loop applies every change to the
+// vendor HAL; the connect/reconnect replay covers boot and HAL restarts.
+[[noreturn]] void eyeCareWatchLoop(const std::shared_ptr<DashDisplayModes>& modes) {
+  dash::DashLiveDisplayCore& core = modes->core();
+  const prop_info* pi = nullptr;
+  uint32_t serial = 0;
+  for (;;) {
+    if (pi == nullptr) {
+      pi = __system_property_find(dash::kEyeCareProperty);
+      if (pi == nullptr) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        continue;
+      }
+      serial = __system_property_serial(pi);
+      core.applyEyeCareFromProperty();
+    }
+    // Wake at approximately 60 Hz only while fading. A property change wakes
+    // immediately and retargets from the last successfully applied level.
+    const timespec frame{0, 16'000'000};
+    const timespec* timeout = core.eyeCareTransitionPending() ? &frame : nullptr;
+    uint32_t next_serial = serial;
+    if (__system_property_wait(pi, serial, &next_serial, timeout)) {
+      serial = next_serial;
+    }
+    core.applyEyeCareFromProperty();
   }
 }
 
@@ -67,6 +97,7 @@ int main() {
   }
 
   std::thread(monitorLoop, modes).detach();
+  std::thread(eyeCareWatchLoop, modes).detach();
   ABinderProcess_joinThreadPool();
   return 0;
 }

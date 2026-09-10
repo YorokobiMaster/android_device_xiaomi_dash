@@ -64,6 +64,11 @@ std::vector<SetFeatureCall> expertSequence(int32_t gamut) {
   };
 }
 
+std::vector<SetFeatureCall> withEyeCareOff(std::vector<SetFeatureCall> calls) {
+  calls.push_back({0, 3, 0, 255});
+  return calls;
+}
+
 // One Harness owns the fake HAL instances (one per connection) and the
 // property backing store shared by every core built from it.
 struct Harness {
@@ -122,7 +127,7 @@ TEST(DashLiveDisplayCoreTest, FirstConnectAppliesStandardDefault) {
   auto core = harness.makeCore();
   ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
   ASSERT_EQ(harness.hals.size(), 1u);
-  EXPECT_EQ(harness.hal().calls, simpleSequence(2));
+  EXPECT_EQ(harness.hal().calls, withEyeCareOff(simpleSequence(2)));
   EXPECT_EQ(core->currentModeId(), 1);
   EXPECT_EQ(core->defaultModeId(), 1);
 }
@@ -190,7 +195,7 @@ TEST(DashLiveDisplayCoreTest, ServiceRestartRestoresPersistedDefault) {
   auto restarted = harness.makeCore();
   ASSERT_EQ(restarted->ensureConnected(), ApplyResult::kOk);
   ASSERT_EQ(harness.hals.size(), 2u);
-  EXPECT_EQ(harness.hal(1).calls, expertSequence(3));
+  EXPECT_EQ(harness.hal(1).calls, withEyeCareOff(expertSequence(3)));
   EXPECT_EQ(restarted->currentModeId(), 3);
   EXPECT_EQ(restarted->defaultModeId(), 3);
 }
@@ -200,7 +205,7 @@ TEST(DashLiveDisplayCoreTest, MalformedPersistedDefaultFallsBackToStandard) {
   harness.properties[dash::kPersistModeProperty] = "not-a-mode";
   auto core = harness.makeCore();
   ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
-  EXPECT_EQ(harness.hal().calls, simpleSequence(2));
+  EXPECT_EQ(harness.hal().calls, withEyeCareOff(simpleSequence(2)));
 }
 
 TEST(DashLiveDisplayCoreTest, OutOfRangePersistedDefaultFallsBackToStandard) {
@@ -208,7 +213,7 @@ TEST(DashLiveDisplayCoreTest, OutOfRangePersistedDefaultFallsBackToStandard) {
   harness.properties[dash::kPersistModeProperty] = "99";
   auto core = harness.makeCore();
   ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
-  EXPECT_EQ(harness.hal().calls, simpleSequence(2));
+  EXPECT_EQ(harness.hal().calls, withEyeCareOff(simpleSequence(2)));
 }
 
 TEST(DashLiveDisplayCoreTest, PartialExpertFailureDoesNotCommitState) {
@@ -243,7 +248,7 @@ TEST(DashLiveDisplayCoreTest, FirstConnectApplyErrorStaysDisconnectedAndRetries)
   // The retry must build a fresh connection and re-apply the default.
   ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
   ASSERT_EQ(harness.hals.size(), 2u);
-  EXPECT_EQ(harness.hal(1).calls, simpleSequence(2));
+  EXPECT_EQ(harness.hal(1).calls, withEyeCareOff(simpleSequence(2)));
   EXPECT_EQ(core->currentModeId(), 1);
 }
 
@@ -277,7 +282,7 @@ TEST(DashLiveDisplayCoreTest, DeadDuringApplyReconnectsAndReplaysLastSuccess) {
   ASSERT_EQ(harness.hals.size(), 2u);
   // Nothing was committed, so the replay target is the previous state: the
   // standard default.
-  EXPECT_EQ(harness.hal(1).calls, simpleSequence(2));
+  EXPECT_EQ(harness.hal(1).calls, withEyeCareOff(simpleSequence(2)));
 }
 
 TEST(DashLiveDisplayCoreTest, HalDeathReplaysCurrentProfileFromCookieZero) {
@@ -289,7 +294,7 @@ TEST(DashLiveDisplayCoreTest, HalDeathReplaysCurrentProfileFromCookieZero) {
   core->notifyHalDeath();
   ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
   ASSERT_EQ(harness.hals.size(), 2u);
-  EXPECT_EQ(harness.hal(1).calls, expertSequence(3));
+  EXPECT_EQ(harness.hal(1).calls, withEyeCareOff(expertSequence(3)));
 }
 
 TEST(DashLiveDisplayCoreTest, RepeatedSelectionIsIdempotent) {
@@ -312,7 +317,7 @@ TEST(DashLiveDisplayCoreTest, EnsureConnectedWhileConnectedIsANoOp) {
   ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
   ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
   ASSERT_EQ(harness.hals.size(), 1u);
-  EXPECT_EQ(harness.hal().calls, simpleSequence(2));
+  EXPECT_EQ(harness.hal().calls, withEyeCareOff(simpleSequence(2)));
 }
 
 TEST(DashLiveDisplayCoreTest, UnavailableHalFailsSelectionWithoutStateChange) {
@@ -337,6 +342,225 @@ TEST(DashLiveDisplayCoreTest, AwaitDisconnectedTracksTheLinkState) {
   EXPECT_EQ(waiter.wait_for(std::chrono::milliseconds(200)), std::future_status::timeout);
   core->notifyHalDeath();
   EXPECT_EQ(waiter.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+}
+
+TEST(DashLiveDisplayCoreTest, EyeCareOffByDefaultExplicitlyClearsHal) {
+  Harness harness;
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls, withEyeCareOff(simpleSequence(2)));
+}
+
+TEST(DashLiveDisplayCoreTest, FirstConnectReplaysPersistedEyeCare) {
+  Harness harness;
+  harness.properties[dash::kEyeCareProperty] = "156";
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  auto expected = simpleSequence(2);
+  expected.push_back({0, 3, 156, 255});
+  EXPECT_EQ(harness.hal().calls, expected);
+}
+
+TEST(DashLiveDisplayCoreTest, PropertyChangeTogglesEyeCare) {
+  Harness harness;
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  harness.hal().calls.clear();
+
+  const auto now = DashLiveDisplayCore::Clock::now();
+  harness.properties[dash::kEyeCareProperty] = "156";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now), ApplyResult::kOk);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(300)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls, std::vector<SetFeatureCall>({{0, 3, 156, 255}}));
+
+  harness.properties[dash::kEyeCareProperty] = "0";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(400)), ApplyResult::kOk);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(700)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls,
+            std::vector<SetFeatureCall>({{0, 3, 156, 255}, {0, 3, 0, 255}}));
+}
+
+TEST(DashLiveDisplayCoreTest, UnchangedEyeCarePropertyWritesNothing) {
+  Harness harness;
+  harness.properties[dash::kEyeCareProperty] = "156";
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  harness.hal().calls.clear();
+
+  // The connect already replayed the persisted state; a watcher wakeup with
+  // the same value must not write again.
+  ASSERT_EQ(core->applyEyeCareFromProperty(), ApplyResult::kOk);
+  EXPECT_TRUE(harness.hal().calls.empty());
+}
+
+TEST(DashLiveDisplayCoreTest, HalDeathReplaysEyeCareAfterProfile) {
+  Harness harness;
+  harness.properties[dash::kEyeCareProperty] = "156";
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+
+  core->notifyHalDeath();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  ASSERT_EQ(harness.hals.size(), 2u);
+  auto expected = simpleSequence(2);
+  expected.push_back({0, 3, 156, 255});
+  EXPECT_EQ(harness.hal(1).calls, expected);
+}
+
+TEST(DashLiveDisplayCoreTest, EyeCareApplyErrorStaysDisconnectedAndRetries) {
+  Harness harness;
+  harness.properties[dash::kEyeCareProperty] = "156";
+  // Fail the eye-care write during the connect-time replay.
+  harness.arm_fail_at_call = 2;
+  harness.arm_fail_status = HalStatus::kError;
+  auto core = harness.makeCore();
+
+  EXPECT_EQ(core->ensureConnected(), ApplyResult::kHalError);
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  ASSERT_EQ(harness.hals.size(), 2u);
+  auto expected = simpleSequence(2);
+  expected.push_back({0, 3, 156, 255});
+  EXPECT_EQ(harness.hal(1).calls, expected);
+}
+
+TEST(DashLiveDisplayCoreTest, MalformedPersistedEyeCareStaysOff) {
+  Harness harness;
+  harness.properties[dash::kEyeCareProperty] = "warm";
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls, withEyeCareOff(simpleSequence(2)));
+}
+
+TEST(DashLiveDisplayCoreTest, RuntimeEyeCareErrorWakesReconnectWorker) {
+  Harness harness;
+  harness.properties[dash::kEyeCareProperty] = "156";
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  harness.hal().calls.clear();
+  harness.hal().fail_at_call = 1;
+  harness.hal().fail_status = HalStatus::kError;
+  harness.properties[dash::kEyeCareProperty] = "255";
+  EXPECT_EQ(core->applyEyeCareFromProperty(), ApplyResult::kHalError);
+  auto worker = std::async(std::launch::async, [&] { core->awaitDisconnected(); });
+  EXPECT_EQ(worker.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal(1).calls.back().value, 255);
+}
+
+TEST(DashLiveDisplayCoreTest, DisableDuringOutageWinsOverOldEnabledState) {
+  Harness harness;
+  harness.properties[dash::kEyeCareProperty] = "156";
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  core->notifyHalDeath();
+  harness.hal_available = false;
+  harness.properties[dash::kEyeCareProperty] = "0";
+  EXPECT_EQ(core->applyEyeCareFromProperty(), ApplyResult::kHalUnavailable);
+  harness.hal_available = true;
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal(1).calls.back().value, 0);
+}
+
+TEST(DashLiveDisplayCoreTest, LiveIntensityUpdatesAndInvalidValues) {
+  Harness harness;
+  harness.properties[dash::kEyeCareProperty] = "58";
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  for (int level : {58, 156, 255}) {
+    harness.properties[dash::kEyeCareProperty] = std::to_string(level);
+    ASSERT_EQ(core->applyEyeCareFromProperty(), ApplyResult::kOk);
+    EXPECT_EQ(harness.hal().calls.back().value, level);
+  }
+  const auto now = DashLiveDisplayCore::Clock::now();
+  harness.properties[dash::kEyeCareProperty] = "0";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now), ApplyResult::kOk);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(300)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.back().value, 0);
+  for (const char* value : {"57", "256", "-1", "156x", "999999999999999999999999"}) {
+    harness.properties[dash::kEyeCareProperty] = value;
+    ASSERT_EQ(core->applyEyeCareFromProperty(), ApplyResult::kOk);
+    EXPECT_EQ(harness.hal().calls.back().value, 0);
+  }
+}
+
+TEST(DashLiveDisplayCoreTest, EyeCareFadesBothDirectionsAndStopsAtTarget) {
+  Harness harness;
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  const auto now = DashLiveDisplayCore::Clock::now();
+  harness.properties[dash::kEyeCareProperty] = "156";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now), ApplyResult::kOk);
+  EXPECT_TRUE(core->eyeCareTransitionPending());
+  EXPECT_EQ(harness.hal().calls.back().value, 0);
+  int previous = 0;
+  for (int ms = 30; ms <= 300; ms += 30) {
+    ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(ms)), ApplyResult::kOk);
+    const int level = harness.hal().calls.back().value;
+    EXPECT_GT(level, previous);
+    EXPECT_LE(level, 156);
+    previous = level;
+  }
+  EXPECT_FALSE(core->eyeCareTransitionPending());
+  EXPECT_EQ(previous, 156);
+  harness.properties[dash::kEyeCareProperty] = "0";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(400)), ApplyResult::kOk);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(550)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.back().value, 78);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(700)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.back().value, 0);
+  EXPECT_FALSE(core->eyeCareTransitionPending());
+  const size_t count = harness.hal().calls.size();
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::seconds(1)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.size(), count);
+}
+
+TEST(DashLiveDisplayCoreTest, ReversingFadeStartsAtLastAppliedLevel) {
+  Harness harness;
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  const auto now = DashLiveDisplayCore::Clock::now();
+  harness.properties[dash::kEyeCareProperty] = "156";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now), ApplyResult::kOk);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(150)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.back().value, 78);
+  harness.properties[dash::kEyeCareProperty] = "0";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(150)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.back().value, 78);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(300)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.back().value, 39);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(450)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.back().value, 0);
+}
+
+TEST(DashLiveDisplayCoreTest, SliderInterruptsFadeWithoutTrailingAnimation) {
+  Harness harness;
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  const auto now = DashLiveDisplayCore::Clock::now();
+  harness.properties[dash::kEyeCareProperty] = "156";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now), ApplyResult::kOk);
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(100)), ApplyResult::kOk);
+  harness.properties[dash::kEyeCareProperty] = "255";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(110)), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal().calls.back().value, 255);
+  EXPECT_FALSE(core->eyeCareTransitionPending());
+}
+
+TEST(DashLiveDisplayCoreTest, FailedFadeCancelsTicksAndReplaysLatestRequest) {
+  Harness harness;
+  auto core = harness.makeCore();
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  const auto now = DashLiveDisplayCore::Clock::now();
+  harness.properties[dash::kEyeCareProperty] = "156";
+  ASSERT_EQ(core->applyEyeCareFromProperty(now), ApplyResult::kOk);
+  harness.hal().fail_at_call = harness.hal().calls.size() + 1;
+  harness.hal().fail_status = HalStatus::kError;
+  EXPECT_EQ(core->applyEyeCareFromProperty(now + std::chrono::milliseconds(100)), ApplyResult::kHalError);
+  EXPECT_FALSE(core->eyeCareTransitionPending());
+  harness.properties[dash::kEyeCareProperty] = "0";
+  ASSERT_EQ(core->ensureConnected(), ApplyResult::kOk);
+  EXPECT_EQ(harness.hal(1).calls.back().value, 0);
+  EXPECT_FALSE(core->eyeCareTransitionPending());
 }
 
 }  // namespace

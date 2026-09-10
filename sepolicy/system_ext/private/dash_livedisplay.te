@@ -28,3 +28,6 @@ type vendor_hal_displayfeature_xiaomi_service, service_manager_type, hal_service
 
 allow dash_livedisplay vendor_hal_displayfeature_xiaomi_service:service_manager find;
 binder_call(dash_livedisplay, vendor_hal_displayfeature_xiaomi_default)
+
+# DashEyeCare owns the requested level; the service applies it.
+get_prop(dash_livedisplay, dash_eyecare_prop)
