@@ -165,6 +165,7 @@ void DashVibratorAdapter::onUnlinked(void* raw_cookie) {
   delete static_cast<Cookie*>(raw_cookie);
 }
 
+#ifndef __ANDROID__
 void DashVibratorAdapter::notifyDeathForTest(void* cookie) {
   onDeath(cookie);
 }
@@ -172,3 +173,4 @@ void DashVibratorAdapter::notifyDeathForTest(void* cookie) {
 void DashVibratorAdapter::releaseCookieForTest(void* cookie) {
   onUnlinked(cookie);
 }
+#endif

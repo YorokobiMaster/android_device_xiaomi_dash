@@ -54,8 +54,11 @@ class DashVibratorAdapter final : public aidl::android::hardware::vibrator::BnVi
   ::ndk::ScopedAStatus alwaysOnDisable(int32_t) override;
 
   ::ndk::ScopedAStatus connect();
+#ifndef __ANDROID__
+  // Host tests simulate binder death; these entry points are not device APIs.
   static void notifyDeathForTest(void* cookie);
   static void releaseCookieForTest(void* cookie);
+#endif
 
  private:
   struct Cookie {
