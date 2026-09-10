@@ -73,6 +73,7 @@ PRODUCT_PACKAGES += \
     DashEyeCare \
     DashFrameworkResOverlay \
     DashLedService \
+    DashLineagePartsOverlay \
     DashRefreshRate \
     DashSettingsOverlay \
     DashTelecommOverlay \
