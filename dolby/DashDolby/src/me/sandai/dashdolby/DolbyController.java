@@ -8,6 +8,7 @@ package me.sandai.dashdolby;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -53,6 +54,7 @@ public class DolbyController {
 
     private final SharedPreferences mPrefs;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mCreateEffect = this::tryCreateEffect;
 
     private DolbyAudioEffect mEffect;
     private int mCreateAttempts;
@@ -66,9 +68,24 @@ public class DolbyController {
 
     private DolbyController(Context context) {
         mPrefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        context.getSystemService(AudioManager.class).setAudioServerStateCallback(
+                mHandler::post, new AudioManager.AudioServerStateCallback() {
+                    @Override
+                    public void onAudioServerDown() {
+                        mHandler.removeCallbacks(mCreateEffect);
+                        releaseEffect();
+                    }
+
+                    @Override
+                    public void onAudioServerUp() {
+                        init();
+                    }
+                });
     }
 
     public void init() {
+        mHandler.removeCallbacks(mCreateEffect);
+        mCreateAttempts = 0;
         tryCreateEffect();
     }
 
@@ -79,14 +96,14 @@ public class DolbyController {
             if (!mEffect.hasControl()) {
                 throw new IllegalStateException("created without control");
             }
-            mCreateAttempts = 0;
             applyBootState();
             Log.i(TAG, "DAP effect created, profiles=" + mEffect.getProfileCount());
+            mCreateAttempts = 0;
         } catch (RuntimeException e) {
             releaseEffect();
             if (++mCreateAttempts <= MAX_CREATE_ATTEMPTS) {
                 Log.w(TAG, "effect not ready, retry " + mCreateAttempts, e);
-                mHandler.postDelayed(this::tryCreateEffect, CREATE_RETRY_DELAY_MS);
+                mHandler.postDelayed(mCreateEffect, CREATE_RETRY_DELAY_MS);
             } else {
                 Log.e(TAG, "giving up creating DAP effect", e);
             }

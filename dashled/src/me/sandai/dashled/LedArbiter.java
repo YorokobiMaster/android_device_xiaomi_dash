@@ -179,12 +179,12 @@ public final class LedArbiter {
 
     private void playBpcLocked(Session session) {
         DashLedEffect effect = session.effect;
-        final BpcCompletion done = effect.repeatCount > 0 ? new BpcCompletion(session) : null;
+        final BpcCompletion done = new BpcCompletion(session);
         mBpcDone = done;
         mBackend.submitBpcBreath(effect.colors, effect.brightness,
                 effect.periodMs, effect.repeatCount, () -> {
                     synchronized (LedArbiter.this) {
-                        if (done != null && mBpcDone == done) {
+                        if (effect.repeatCount > 0 && mBpcDone == done) {
                             long duration = Aw21024Backend.estimateBpcDurationMs(
                                     effect.periodMs, effect.repeatCount);
                             done.deadlineElapsedMs = mElapsedRealtime.getAsLong() + duration;
@@ -195,7 +195,7 @@ public final class LedArbiter {
                                     done.deadlineElapsedMs, "DashLed:breath", done, mHandler);
                         }
                     }
-                });
+                }, done);
     }
 
     /** Reconcile on screen-on too: Android may drop listener alarms when cached. */

@@ -111,6 +111,30 @@ public final class RefreshRatePolicyTest {
     }
 
     @Test
+    public void failedDozeWriteAndRollbackCompletesOnRetry() {
+        FakeStore store = new FakeStore("60.0");
+        store.peakRefreshRate = "120.0";
+        store.failNextMinWrite = true;
+        store.failPeakRollback = true;
+        RefreshRatePolicy policy = policy(store);
+        policy.onDisplayState(RefreshRatePolicy.DisplayState.DOZE);
+        assertTrue(store.overrideActive);
+        assertEquals("60.0", store.minRefreshRate);
+        assertEquals("30.0", store.peakRefreshRate);
+
+        policy.onDisplayState(RefreshRatePolicy.DisplayState.DOZE);
+        assertEquals("0.0", store.minRefreshRate);
+        assertEquals("30.0", store.peakRefreshRate);
+        assertEquals("60.0", store.savedAwakeMinRefreshRate);
+        assertEquals("120.0", store.savedAwakePeakRefreshRate);
+
+        policy.onDisplayState(RefreshRatePolicy.DisplayState.AWAKE);
+        assertEquals("60.0", store.minRefreshRate);
+        assertEquals("120.0", store.peakRefreshRate);
+        assertFalse(store.overrideActive);
+    }
+
+    @Test
     public void failedDozeWriteDoesNotLeaveActiveOverride() {
         FakeStore store = new FakeStore("60.0");
         store.failNextMinWrite = true;
@@ -259,6 +283,7 @@ public final class RefreshRatePolicyTest {
         boolean overrideActive;
         boolean failNextMinWrite;
         boolean failNextPeakWrite;
+        boolean failPeakRollback;
         boolean failNextDozeBrightness;
         int dozeBrightness = RefreshRatePolicy.DOZE_BRIGHTNESS_NORMAL;
         final StringBuilder operations = new StringBuilder();
@@ -290,6 +315,10 @@ public final class RefreshRatePolicyTest {
 
         @Override
         public boolean writePeakRefreshRate(String value) {
+            if (failPeakRollback && "120.0".equals(value)) {
+                failPeakRollback = false;
+                return false;
+            }
             if (failNextPeakWrite) {
                 failNextPeakWrite = false;
                 return false;

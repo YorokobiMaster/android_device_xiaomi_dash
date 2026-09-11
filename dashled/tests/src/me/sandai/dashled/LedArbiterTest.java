@@ -28,10 +28,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -47,6 +49,7 @@ public class LedArbiterTest {
     private final CountDownLatch mAlarmScheduled = new CountDownLatch(1);
     private HandlerThread mThread;
     private Handler mHandler;
+    private final AtomicBoolean mFailNextWrite = new AtomicBoolean();
     private Aw21024Backend mBackend;
     private LedArbiter mArbiter;
 
@@ -56,6 +59,9 @@ public class LedArbiterTest {
         mThread.start();
         mHandler = new Handler(mThread.getLooper());
         mBackend = new Aw21024Backend(mHandler, (path, value) -> {
+            if (mFailNextWrite.getAndSet(false)) {
+                throw new IOException("injected write failure");
+            }
             synchronized (mWrites) {
                 mWrites.add(path.substring(path.lastIndexOf('/') + 1) + "=" + value);
                 mWrites.notifyAll();
@@ -93,7 +99,7 @@ public class LedArbiterTest {
         assertTrue(blocked.await(2, TimeUnit.SECONDS));
         try {
             mBackend.submitFrame(WHITE, 100);
-            mBackend.submitBpcBreath(WHITE, 255, 260, 3, () -> {});
+            mBackend.submitBpcBreath(WHITE, 255, 260, 3, () -> {}, () -> {});
             mBackend.submitOff();
         } finally {
             release.countDown();
@@ -139,6 +145,28 @@ public class LedArbiterTest {
         assertEquals(1, completed.get());
         mCompletion.get().onAlarm();
         assertEquals(1, completed.get());
+    }
+
+    @Test
+    public void failedHardwareBreathRestoresLowerPriorityFrame() throws Exception {
+        LedArbiter.Session background = mArbiter.acquire(0);
+        mArbiter.setFrame(background, WHITE, 42);
+        awaitWrite("reg=13 2a");
+        drain();
+        synchronized (mWrites) {
+            mWrites.clear();
+        }
+        mFailNextWrite.set(true);
+        LedArbiter.Session foreground = mArbiter.acquire(1);
+        AtomicInteger completed = new AtomicInteger();
+        mArbiter.playEffect(foreground, effect(3), () -> {
+            completed.incrementAndGet();
+            mArbiter.release(foreground);
+        });
+        awaitWrite("reg=13 2a");
+        drain();
+        assertEquals(1, completed.get());
+        assertEquals(1L, mAlarmScheduled.getCount());
     }
 
     @Test

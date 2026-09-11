@@ -83,6 +83,7 @@ public final class Aw21024Backend {
     private int mPendingPeriodMs;
     private int mPendingRepeatCount;
     private Runnable mPendingStarted;
+    private Runnable mPendingFailed;
 
     public Aw21024Backend() {
         this(createHandler(), Aw21024Backend::writeSysfsNode);
@@ -114,6 +115,7 @@ public final class Aw21024Backend {
             mPendingOff = false;
             mPendingPeriodMs = 0;
             mPendingStarted = null;
+            mPendingFailed = null;
             scheduleFlushLocked();
         }
     }
@@ -124,6 +126,7 @@ public final class Aw21024Backend {
             mPendingOff = true;
             mPendingPeriodMs = 0;
             mPendingStarted = null;
+            mPendingFailed = null;
             scheduleFlushLocked();
         }
     }
@@ -147,6 +150,7 @@ public final class Aw21024Backend {
         final int periodMs;
         final int repeatCount;
         final Runnable started;
+        final Runnable failed;
         synchronized (mLock) {
             mFlushScheduled = false;
             mLastFlushUptimeMs = SystemClock.uptimeMillis();
@@ -156,10 +160,12 @@ public final class Aw21024Backend {
             periodMs = mPendingPeriodMs;
             repeatCount = mPendingRepeatCount;
             started = mPendingStarted;
+            failed = mPendingFailed;
             mPendingColors = null;
             mPendingOff = false;
             mPendingPeriodMs = 0;
             mPendingStarted = null;
+            mPendingFailed = null;
             if (colors == null && !off) {
                 return;
             }
@@ -181,6 +187,9 @@ public final class Aw21024Backend {
             mPowered = false;
             mBpcActive = false;
             Log.e(TAG, "sysfs write failed", e);
+            if (failed != null) {
+                failed.run();
+            }
         }
     }
 
@@ -221,7 +230,7 @@ public final class Aw21024Backend {
      * sleep. Register order is documented in docs/hardware.md.
      */
     public void submitBpcBreath(int[] colors, int brightness, int periodMs, int repeatCount,
-            Runnable onStarted) {
+            Runnable onStarted, Runnable onFailed) {
         synchronized (mLock) {
             mPendingColors = colors.clone();
             mPendingBrightness = brightness;
@@ -229,6 +238,7 @@ public final class Aw21024Backend {
             mPendingPeriodMs = periodMs;
             mPendingRepeatCount = repeatCount;
             mPendingStarted = onStarted;
+            mPendingFailed = onFailed;
             scheduleFlushLocked();
         }
     }

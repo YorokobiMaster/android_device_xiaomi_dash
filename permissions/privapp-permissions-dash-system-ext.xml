@@ -5,6 +5,12 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <permissions>
+    <privapp-permissions package="me.sandai.dashdolby">
+        <permission name="android.permission.MODIFY_AUDIO_ROUTING"/>
+    </privapp-permissions>
+    <signature-permissions package="me.sandai.dashdolby">
+        <permission name="android.permission.MODIFY_AUDIO_ROUTING"/>
+    </signature-permissions>
     <privapp-permissions package="me.sandai.dashwake">
         <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
     </privapp-permissions>

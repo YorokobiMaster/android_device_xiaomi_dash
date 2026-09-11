@@ -66,7 +66,14 @@ final class RefreshRatePolicy {
         }
 
         if (mStore.isDozeOverrideActive()) {
-            mLogger.log("doze override already active");
+            // The recovery record precedes the writes, so it can also describe
+            // a partial apply. Keep it and finish the override on retry.
+            if (!isThirty(mStore.readPeakRefreshRate())) {
+                if (!mStore.writePeakRefreshRate(DOZE_PEAK_REFRESH_RATE)) return;
+            }
+            if (!isZero(mStore.readMinRefreshRate())) {
+                mStore.writeMinRefreshRate(DOZE_MIN_REFRESH_RATE);
+            }
             return;
         }
 
