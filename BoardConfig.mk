@@ -18,9 +18,8 @@ TARGET_BOARD_PLATFORM := mt6991
 TARGET_BOOTLOADER_BOARD_NAME := mt6991
 TARGET_NO_BOOTLOADER := true
 
-# The supplied OSS kernel tree does not contain the complete dash
-# device-module/config integration, so this stage builds no boot images.
-TARGET_NO_KERNEL := true
+# Kleaf builds the kernel; Android assembles the partition images.
+include $(DEVICE_PATH)/kernel/BoardConfigKernel.mk
 
 # Stock images use a 4096-byte page size.
 BOARD_KERNEL_PAGESIZE := 4096
