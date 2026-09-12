@@ -25,8 +25,7 @@ include $(DEVICE_PATH)/kernel/BoardConfigKernel.mk
 BOARD_KERNEL_PAGESIZE := 4096
 BOARD_FLASH_BLOCK_SIZE := 262144
 
-# Build the Lineage-owned framework partitions as separate ext4 filesystems.
-TARGET_USERIMAGES_USE_EXT4 := true
+# Build the Lineage-owned framework partitions as separate EROFS filesystems.
 TARGET_COPY_OUT_PRODUCT := product
 TARGET_COPY_OUT_SYSTEM_EXT := system_ext
 TARGET_COPY_OUT_VENDOR := vendor
@@ -34,9 +33,9 @@ TARGET_COPY_OUT_ODM := odm
 TARGET_COPY_OUT_SYSTEM_DLKM := system_dlkm
 TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
 TARGET_COPY_OUT_ODM_DLKM := odm_dlkm
-BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := ext4
-BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := ext4
-BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE := ext4
+BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE := erofs
 
 # First-stage init mounts metadata before switching to the system image root.
 BOARD_USES_METADATA_PARTITION := true
@@ -56,17 +55,13 @@ BOARD_ODM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 # drop lineage's dynamic/ policy (hal_*_service types, service_contexts).
 TARGET_USES_PREBUILT_VENDOR_SEPOLICY := true
 
-# Image bounds sized to fit the stock HyperOS LP group. Fixed bounds keep the
-# requested inode counts; build_image otherwise trims dynamically sized ext4
-# images back to roughly the installed inode usage.
+# Image bounds sized to fit the stock HyperOS LP group.
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 880340992
 BOARD_PRODUCTIMAGE_PARTITION_SIZE := 1199996928
 BOARD_SYSTEM_EXTIMAGE_PARTITION_SIZE := 479997952
-
-# Inode headroom within those measured bounds.
-BOARD_SYSTEMIMAGE_EXTFS_INODE_COUNT := 8192
-BOARD_PRODUCTIMAGE_EXTFS_INODE_COUNT := 32768
-BOARD_SYSTEM_EXTIMAGE_EXTFS_INODE_COUNT := 32768
+BOARD_VENDOR_DLKMIMAGE_PARTITION_SIZE := 25477120
+BOARD_VENDOR_DLKMIMAGE_EROFS_COMPRESSOR := lz4hc,level=12
+BOARD_VENDOR_DLKMIMAGE_EROFS_PCLUSTER_SIZE := 16384
 
 # Do not define BOARD_SUPER_PARTITION_SIZE or dynamic-partition group sizes
 # in this stage. Per-partition sizes above come from the stock LP metadata;
