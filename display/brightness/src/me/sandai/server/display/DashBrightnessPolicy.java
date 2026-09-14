@@ -42,10 +42,7 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     private float mLux;
     private int mGeneration;
     private Inputs mInputs;
-    private final Runnable mExpire = () -> {
-        mInputs = null;
-        mChanged.run();
-    };
+    private final Runnable mExpire;
 
     // Worker-owned fields, never used directly by the display or Binder threads.
     private boolean mRunning;
@@ -67,6 +64,10 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     public DashBrightnessPolicy(Context context, Handler handler, Runnable onChanged) {
         mDisplayHandler = handler;
         mChanged = onChanged;
+        mExpire = () -> {
+            mInputs = null;
+            mChanged.run();
+        };
     }
 
     @Override
