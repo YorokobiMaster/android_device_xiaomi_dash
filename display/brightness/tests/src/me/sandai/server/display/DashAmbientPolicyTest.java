@@ -53,8 +53,7 @@ public class DashAmbientPolicyTest {
         mThread.start();
         mHandler = new Handler(mThread.getLooper());
         Context context = mock(Context.class);
-        when(context.getSystemServiceName(CameraManager.class)).thenReturn(Context.CAMERA_SERVICE);
-        when(context.getSystemService(Context.CAMERA_SERVICE)).thenReturn(mCameras);
+        when(context.getSystemService(CameraManager.class)).thenReturn(mCameras);
         when(mCameras.getCameraIdList()).thenReturn(new String[0]);
         when(mAssist.getType()).thenReturn(33171055);
         when(mSensors.getDefaultSensor(33171055)).thenReturn(mAssist);
