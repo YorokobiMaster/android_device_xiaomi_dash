@@ -24,7 +24,7 @@ def main():
     for name, impl in (("config_deviceAmbientPolicy", "DashAmbientPolicy"),
                        ("config_deviceBrightnessPolicy", "DashBrightnessPolicy")):
         assert resources[name].text == f"me.sandai.server.display.{impl}"
-    assert resources["config_displayLightSensorType"].text == "xiaomi.sensor.ambientlight.raw"
+    assert resources["config_displayLightSensorType"].text == "android.sensor.light"
     assert "config_autoBrightnessLcdBacklightValues" not in resources
     android = "{http://schemas.android.com/apk/res/android}"
     manifest = ET.parse(overlay / "AndroidManifest.xml").find("overlay")

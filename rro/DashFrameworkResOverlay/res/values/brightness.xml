@@ -6,7 +6,8 @@
          Product RRO overrides retained vendor curves. Calibration lives in DDC. -->
     <string name="config_deviceAmbientPolicy" translatable="false">me.sandai.server.display.DashAmbientPolicy</string>
     <string name="config_deviceBrightnessPolicy" translatable="false">me.sandai.server.display.DashBrightnessPolicy</string>
-    <string name="config_displayLightSensorType" translatable="false">xiaomi.sensor.ambientlight.raw</string>
+    <!-- Stock subscribes to tsl2525_als, the standard compensated light sensor. -->
+    <string name="config_displayLightSensorType" translatable="false">android.sensor.light</string>
     <bool name="config_automatic_brightness_available">true</bool>
     <integer name="config_autoBrightnessBrighteningLightDebounce">1000</integer>
     <integer name="config_autoBrightnessDarkeningLightDebounce">1000</integer>
