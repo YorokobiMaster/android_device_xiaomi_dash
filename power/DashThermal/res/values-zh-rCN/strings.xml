@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 GitHub @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">应用温控</string>
+    <string name="settings_summary">按应用选择温控档位</string>
+    <string name="action_search">搜索</string>
+    <string name="search_apps_hint">搜索应用…</string>
+    <string name="action_show_system">显示系统应用</string>
+    <string name="filter_all_apps">全部应用</string>
+    <string name="filter_modified">已修改</string>
+    <string name="master_switch_title">使用应用温控</string>
+    <string name="service_unavailable">温控服务不可用</string>
+    <string name="save_failed">保存失败，请重试</string>
+    <string name="last_error_format">最近错误：%1$s</string>
+
+    <string name="profile_auto">自动</string>
+    <string name="profile_normal">普通</string>
+    <string name="profile_advanced">增强</string>
+    <string name="profile_gaming">游戏</string>
+    <string name="profile_gaming_plus">游戏+</string>
+    <string name="profile_performance">高性能</string>
+    <string name="profile_extreme">极致</string>
+
+    <string name="profile_auto_summary">按内置分类自动选择（选择即清除用户覆盖）</string>
+    <string name="profile_auto_summary_category">按分类使用 · %1$s</string>
+    <string name="profile_normal_summary">默认温控策略</string>
+    <string name="profile_advanced_summary">高温段放宽 CPU 上限</string>
+    <string name="profile_gaming_summary">基础游戏策略</string>
+    <string name="profile_gaming_plus_summary">通用游戏策略</string>
+    <string name="profile_performance_summary">CPU/GPU 与“游戏+”相同，温度阈值更高</string>
+    <string name="profile_extreme_summary">联动 GPU 频率与核心调度</string>
+
+    <string name="list_subtitle_auto_category">自动 · %1$s</string>
+    <string name="detail_footer">更高的档位会放宽温度限制，机身可能更热</string>
+</resources>

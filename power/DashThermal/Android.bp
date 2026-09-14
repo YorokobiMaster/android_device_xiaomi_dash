@@ -1,0 +1,25 @@
+// Copyright (C) 2026 GitHub @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_app {
+    name: "DashThermal",
+    srcs: ["src/**/*.java"],
+    resource_dirs: ["res"],
+    static_libs: [
+        "dash-thermal-client",
+        "SettingsLibCollapsingToolbarBaseActivity",
+        "androidx.recyclerview_recyclerview",
+    ],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    optimize: {
+        enabled: true,
+        proguard_flags_files: ["proguard-rules.pro"],
+    },
+}

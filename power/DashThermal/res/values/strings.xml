@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 GitHub @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">App thermal</string>
+    <string name="settings_summary">Choose a thermal profile for each app</string>
+    <string name="action_search">Search</string>
+    <string name="search_apps_hint">Search apps</string>
+    <string name="action_show_system">Show system</string>
+    <string name="filter_all_apps">All apps</string>
+    <string name="filter_modified">Modified</string>
+    <string name="master_switch_title">Per-app thermal control</string>
+    <string name="service_unavailable">Thermal service unavailable</string>
+    <string name="save_failed">Couldn\'t save. Try again.</string>
+    <string name="last_error_format">Last error: %1$s</string>
+
+    <string name="profile_auto">Auto</string>
+    <string name="profile_normal">Normal</string>
+    <string name="profile_advanced">Advanced</string>
+    <string name="profile_gaming">Gaming</string>
+    <string name="profile_gaming_plus">Gaming+</string>
+    <string name="profile_performance">Performance</string>
+    <string name="profile_extreme">Extreme</string>
+
+    <string name="profile_auto_summary">Automatically choose by built-in category (clears your override)</string>
+    <string name="profile_auto_summary_category">By category: %1$s</string>
+    <string name="profile_normal_summary">Default thermal policy</string>
+    <string name="profile_advanced_summary">Relaxed CPU limits at high temperatures</string>
+    <string name="profile_gaming_summary">Basic gaming policy</string>
+    <string name="profile_gaming_plus_summary">General gaming policy</string>
+    <string name="profile_performance_summary">Same CPU/GPU as Gaming+, higher thermal thresholds</string>
+    <string name="profile_extreme_summary">Also tunes GPU frequency and core scheduling</string>
+
+    <string name="list_subtitle_auto_category">Auto · %1$s</string>
+    <string name="detail_footer">Higher profiles relax thermal limits and may increase device temperature.</string>
+</resources>

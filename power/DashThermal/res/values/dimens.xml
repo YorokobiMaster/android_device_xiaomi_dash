@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 GitHub @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <dimen name="card_corner_radius">28dp</dimen>
+    <dimen name="card_padding">16dp</dimen>
+    <dimen name="card_gap">8dp</dimen>
+    <dimen name="list_horizontal_margin">16dp</dimen>
+    <dimen name="detail_icon_size">72dp</dimen>
+</resources>

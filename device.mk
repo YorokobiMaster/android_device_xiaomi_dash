@@ -88,6 +88,7 @@ PRODUCT_PACKAGES += \
     DashSettingsOverlay \
     DashTelecommOverlay \
     DashTelephonyOverlay \
+    DashThermal \
     DashWifiOverlay \
     ImsService \
     MtkGbaService \
