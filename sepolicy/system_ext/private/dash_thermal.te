@@ -1,0 +1,63 @@
+# Copyright (C) 2026 GitHub @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+type dash_thermal_service, service_manager_type, system_server_service;
+add_service(system_server, dash_thermal_service)
+allow { system_app platform_app } dash_thermal_service:service_manager find;
+userdebug_or_eng(`allow { shell su } dash_thermal_service:service_manager find;')
+
+# Only sconfig receives this label. Retain 305 vendor clients' existing file
+# access on this node; add write only for system_server, never on sysfs_therm.
+# Audited against dash live Enforcing policy, incremental1789235020, 2026-09-14.
+type sysfs_dash_sconfig, fs_type, sysfs_type;
+
+# Types supplied by the retained vendor policy.
+type batterysecret, domain;
+type cameramind_app, domain;
+type factory, domain;
+type hal_micharge_default, domain;
+type hal_touchfeature_xiaomi_default, domain;
+type merged_hal_service, domain;
+type mi_ambient, domain;
+type mi_thermald, domain;
+type mtk_hal_audio, domain;
+type mtk_hal_camera, domain;
+type mtk_hal_light, domain;
+type mtk_hal_mbrain, domain;
+type mtk_hal_power, domain;
+type mtk_hal_power_exec;
+type mtk_hal_pq, domain;
+type thermal_core, domain;
+type thermal_manager, domain;
+
+allow batterysecret sysfs_dash_sconfig:file { getattr open read write };
+allow cameramind_app sysfs_dash_sconfig:file { getattr ioctl lock map open read watch watch_reads };
+allow factory sysfs_dash_sconfig:file { append getattr ioctl lock map open read watch watch_reads write };
+# Use public HAL attributes across the system_ext/vendor policy boundary.
+# Exclude platform implementations such as virtual_fingerprint.
+allow { hal_fingerprint_server -coredomain } sysfs_dash_sconfig:file { open read write };
+allow hal_micharge_default sysfs_dash_sconfig:file { append getattr ioctl lock map open read watch watch_reads write };
+allow { hal_thermal_server -coredomain } sysfs_dash_sconfig:file { append getattr ioctl lock map open read watch watch_reads write };
+allow hal_touchfeature_xiaomi_default sysfs_dash_sconfig:file { open read watch };
+allow merged_hal_service sysfs_dash_sconfig:file { append getattr ioctl lock map open read watch watch_reads write };
+allow mi_ambient sysfs_dash_sconfig:file { getattr open read watch write };
+allow mi_thermald sysfs_dash_sconfig:file { getattr open read watch write };
+allow mtk_hal_audio sysfs_dash_sconfig:file { append getattr ioctl lock map open read watch watch_reads write };
+allow mtk_hal_camera sysfs_dash_sconfig:file { append getattr ioctl lock map open read watch watch_reads write };
+allow mtk_hal_light sysfs_dash_sconfig:file { getattr open read watch };
+allow mtk_hal_mbrain sysfs_dash_sconfig:file { getattr ioctl lock map open read watch watch_reads };
+allow mtk_hal_power sysfs_dash_sconfig:file { open write };
+allow mtk_hal_power_exec sysfs_dash_sconfig:file { open write };
+allow mtk_hal_pq sysfs_dash_sconfig:file { open read };
+allow platform_app sysfs_dash_sconfig:file { getattr open read watch watch_reads };
+allow recovery sysfs_dash_sconfig:file { getattr ioctl lock map open read watch watch_reads };
+allow surfaceflinger sysfs_dash_sconfig:file { open read };
+allow system_app sysfs_dash_sconfig:file { append getattr ioctl lock map open read watch watch_reads write };
+allow system_server sysfs_dash_sconfig:file { getattr open read watch watch_reads };
+allow thermal_core sysfs_dash_sconfig:file { append getattr ioctl lock map open read watch watch_reads write };
+allow thermal_manager sysfs_dash_sconfig:file { append lock map open write };
+allow untrusted_app_25 sysfs_dash_sconfig:file { getattr ioctl lock map open read watch watch_reads };
+allow vendor_hal_displayfeature_xiaomi_default sysfs_dash_sconfig:file { open read watch };
+allow vendor_init sysfs_dash_sconfig:file { append getattr ioctl lock map open read setattr watch watch_reads write };
+allow vold sysfs_dash_sconfig:file { getattr ioctl lock map open read watch watch_reads };
+allow system_server sysfs_dash_sconfig:file write;
