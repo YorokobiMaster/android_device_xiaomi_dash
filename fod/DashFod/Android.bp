@@ -8,21 +8,35 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_library {
+    name: "dash-fod",
+    srcs: [
+        "src/me/sandai/dashfod/DashFodService.java",
+        "src/me/sandai/dashfod/FodController.java",
+    ],
+    libs: ["services.core"],
+    static_libs: ["vendor.xiaomi.hardware.fingerprintextension-V1-java"],
+    platform_apis: true,
+    system_ext_specific: true,
+    installable: true,
+}
+
 android_app {
     name: "DashFod",
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/me/sandai/dashfod/DashFodApplication.java",
+        "src/me/sandai/dashfod/PinLayoutController.java",
+    ],
     platform_apis: true,
     certificate: "platform",
     privileged: true,
     system_ext_specific: true,
-    static_libs: ["vendor.xiaomi.hardware.fingerprintextension-V1-java"],
 }
 
 java_test_host {
     name: "DashFodHostTest",
     srcs: [
         "src/me/sandai/dashfod/FodController.java",
-        "src/me/sandai/dashfod/KeyguardAuthGate.java",
         "tests/src/**/*.java",
     ],
     test_suites: ["general-tests"],

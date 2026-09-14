@@ -3,6 +3,8 @@
 
 DEVICE_PATH := device/xiaomi/dash
 
+$(call inherit-product, $(DEVICE_PATH)/fod/fod.mk)
+
 $(call inherit-product, $(DEVICE_PATH)/display/brightness/brightness.mk)
 
 # The stock device is an A/B dynamic-partition device. This stage builds the
@@ -66,8 +68,6 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
 # CN model's 9000, which broke battery drain estimates.
 PRODUCT_SYSTEM_PROPERTIES += \
     ro.miui.build.region=cn
-
-PRODUCT_PACKAGES += DashFod DashPinLowOverlay
 
 # lineage_dash does not inherit build/make/target/product/base_system_ext.mk,
 # so the ashmem allocator service is never installed even though the frozen

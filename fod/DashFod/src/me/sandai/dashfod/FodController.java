@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 @YorokobiMaster
+ * Copyright (C) 2026 GitHub @YorokobiMaster
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -13,12 +13,6 @@ final class FodController {
         ENROLLMENT,
         KEYGUARD_AUTH,
         GENERIC_AUTH,
-    }
-
-    private enum Phase {
-        IDLE,
-        ACTIVE,
-        CLEANUP_DEBT,
     }
 
     private enum CleanupKind {
@@ -35,9 +29,12 @@ final class FodController {
 
     private final Client mClient;
     private final Consumer<String> mLog;
-    private Phase mPhase = Phase.IDLE;
-    private Operation mOperation;
-    private CleanupKind mCleanupKind;
+    // Only framework lifecycle edges change the request. A policy pause or
+    // failed vendor command changes applied state, not the surviving request.
+    private Operation mRequested;
+    private Operation mApplied;
+    private CleanupKind mCleanupDebt;
+    private boolean mKeyguardAllowed = true;
 
     FodController(Client client, Consumer<String> log) {
         mClient = client;
@@ -45,36 +42,34 @@ final class FodController {
     }
 
     void onStartup() {
-        reconnectAndCleanup("startup");
+        reset("startup");
     }
 
     void onVendorDeath() {
-        reconnectAndCleanup("vendor-death");
+        // The framework owns request lifetime, not this connection. A delayed
+        // death notification must not erase a newer framework START.
+        mApplied = null;
+        mCleanupDebt = CleanupKind.GENERIC_DISARM;
+        mLog.accept("reset reason=vendor-death requested=" + mRequested);
+        reconcile();
+    }
+
+    void onUserChanged() {
+        reset("user-change");
+    }
+
+    private void reset(String reason) {
+        mRequested = null;
+        mApplied = null;
+        mCleanupDebt = CleanupKind.GENERIC_DISARM;
+        mLog.accept("reset reason=" + reason + " desired=disarmed");
+        reconcile();
     }
 
     void onStart(Operation operation) {
-        if (!prepareForEvent("START")) return;
-
-        if (mPhase == Phase.ACTIVE) {
-            if (mOperation == operation) {
-                mLog.accept("edge=START operation=" + operation + " duplicate=true");
-            } else {
-                mLog.accept("edge=START operation=" + operation + " blocked=active-"
-                        + mOperation);
-            }
-            return;
-        }
-
-        mLog.accept("edge=START operation=" + operation + " duplicate=false");
-        if (!mClient.isConnected() && !mClient.connect()) {
-            mLog.accept("edge=START operation=" + operation + " blocked=connect");
-            return;
-        }
-        if (!start(operation)) {
-            runCleanup(terminalCleanup(operation), "partial-start");
-            return;
-        }
-        setActive(operation);
+        mLog.accept("edge=START operation=" + operation);
+        mRequested = operation;
+        reconcile();
     }
 
     void onStop(Operation operation) {
@@ -85,68 +80,57 @@ final class FodController {
         onTerminal("ERROR", operation);
     }
 
-    void onFailed(Operation operation) {
-        if (!prepareForEvent("FAILED")) return;
-
-        if (mPhase != Phase.ACTIVE || mOperation != operation
-                || (operation != Operation.KEYGUARD_AUTH
-                && operation != Operation.GENERIC_AUTH)) {
-            mLog.accept("edge=FAILED operation=" + operation + " ignored=true");
-            return;
-        }
-
-        mLog.accept("edge=FAILED operation=" + operation + " ignored=false");
-        if (!mClient.extCmd(4, 3) || !mClient.extCmd(7, 0)) {
-            runCleanup(CleanupKind.AUTH_TERMINAL, "failed-match");
-        }
-    }
-
     void onSucceeded(Operation operation) {
-        if (!prepareForEvent("SUCCEEDED")) return;
-
-        if (operation != Operation.KEYGUARD_AUTH
-                && operation != Operation.GENERIC_AUTH) {
-            mLog.accept("edge=SUCCEEDED operation=" + operation + " ignored=true");
-            return;
-        }
-        onTerminalPrepared("SUCCEEDED", operation);
+        if (operation != Operation.ENROLLMENT) onTerminal("SUCCEEDED", operation);
     }
 
     private void onTerminal(String edge, Operation operation) {
-        if (!prepareForEvent(edge)) return;
-        onTerminalPrepared(edge, operation);
+        mLog.accept("edge=" + edge + " operation=" + operation
+                + " matching=" + (mRequested == operation));
+        if (mRequested == operation) mRequested = null;
+        reconcile();
     }
 
-    private void onTerminalPrepared(String edge, Operation operation) {
-        if (mPhase != Phase.ACTIVE) {
-            mLog.accept("edge=" + edge + " operation=" + operation + " duplicate=true");
-            return;
-        }
-        if (mOperation != operation) {
-            mLog.accept("edge=" + edge + " operation=" + operation + " blocked=active-"
-                    + mOperation);
-            return;
-        }
+    void onFailed(Operation operation) {
+        if (mRequested != operation || mApplied != operation
+                || operation == Operation.ENROLLMENT) return;
 
-        mLog.accept("edge=" + edge + " operation=" + operation + " duplicate=false");
-        runCleanup(terminalCleanup(operation), edge.toLowerCase());
+        mLog.accept("edge=FAILED operation=" + operation);
+        if (!mClient.extCmd(4, 3) || !mClient.extCmd(7, 0)) {
+            cleanup(CleanupKind.AUTH_TERMINAL);
+        }
     }
 
-    private boolean prepareForEvent(String edge) {
-        if (mPhase != Phase.CLEANUP_DEBT) return true;
+    void setKeyguardAllowed(boolean allowed) {
+        mKeyguardAllowed = allowed;
+        reconcile();
+    }
 
-        CleanupKind cleanupKind = mCleanupKind;
-        mLog.accept("edge=" + edge + " cleanup-debt=" + cleanupKind + " retry=true");
-        if (!mClient.isConnected() && !mClient.connect()) {
-            mLog.accept("edge=" + edge + " cleanup-debt=" + cleanupKind
-                    + " blocked=connect");
-            return false;
+    private Operation desired() {
+        return mRequested == Operation.KEYGUARD_AUTH && !mKeyguardAllowed
+                ? null : mRequested;
+    }
+
+    boolean needsReconcile() {
+        return mCleanupDebt != null || mApplied != desired();
+    }
+
+    void reconcile() {
+        if (!needsReconcile()) return;
+        if (!mClient.isConnected() && !mClient.connect()) return;
+        if (mCleanupDebt != null && !cleanup(mCleanupDebt)) return;
+
+        Operation desired = desired();
+        if (mApplied == desired) return;
+        if (mApplied != null && !cleanup(terminalCleanup(mApplied))) return;
+        if (desired == null) return;
+
+        if (start(desired)) {
+            mApplied = desired;
+            mLog.accept("applied=" + desired);
+        } else {
+            cleanup(terminalCleanup(desired));
         }
-        if (!runCleanup(cleanupKind, "debt-" + edge.toLowerCase())) {
-            mLog.accept("edge=" + edge + " cleanup-debt=" + cleanupKind + " dropped=true");
-            return false;
-        }
-        return true;
     }
 
     private boolean start(Operation operation) {
@@ -170,58 +154,20 @@ final class FodController {
     }
 
     private CleanupKind terminalCleanup(Operation operation) {
-        switch (operation) {
-            case ENROLLMENT:
-                return CleanupKind.ENROLLMENT_TERMINAL;
-            case KEYGUARD_AUTH:
-            case GENERIC_AUTH:
-                return CleanupKind.AUTH_TERMINAL;
-        }
-        throw new IllegalArgumentException("Unknown operation " + operation);
+        return operation == Operation.ENROLLMENT
+                ? CleanupKind.ENROLLMENT_TERMINAL : CleanupKind.AUTH_TERMINAL;
     }
 
-    private void reconnectAndCleanup(String reason) {
-        mLog.accept("connect reason=" + reason + " desired=disarmed");
-        setCleanupDebt(CleanupKind.GENERIC_DISARM);
-        if (!mClient.connect()) return;
-        runCleanup(CleanupKind.GENERIC_DISARM, reason);
-    }
-
-    private boolean runCleanup(CleanupKind cleanupKind, String reason) {
-        mLog.accept("cleanup reason=" + reason + " kind=" + cleanupKind
-                + " desired=disarmed");
-
-        int fingerprintState = cleanupKind == CleanupKind.AUTH_TERMINAL ? 4 : 2;
+    private boolean cleanup(CleanupKind kind) {
+        mApplied = null;
+        mCleanupDebt = kind;
+        int fingerprintState = kind == CleanupKind.AUTH_TERMINAL ? 4 : 2;
         boolean success = true;
         if (!mClient.extCmd(4, fingerprintState)) success = false;
         if (!mClient.extCmd(7, 0)) success = false;
         if (!mClient.extCmd(1, 0)) success = false;
-
-        mLog.accept("cleanup reason=" + reason + " kind=" + cleanupKind
-                + " success=" + success);
-        if (success) {
-            setIdle();
-        } else {
-            setCleanupDebt(cleanupKind);
-        }
+        if (success) mCleanupDebt = null;
+        mLog.accept("cleanup kind=" + kind + " success=" + success);
         return success;
-    }
-
-    private void setIdle() {
-        mPhase = Phase.IDLE;
-        mOperation = null;
-        mCleanupKind = null;
-    }
-
-    private void setActive(Operation operation) {
-        mPhase = Phase.ACTIVE;
-        mOperation = operation;
-        mCleanupKind = null;
-    }
-
-    private void setCleanupDebt(CleanupKind cleanupKind) {
-        mPhase = Phase.CLEANUP_DEBT;
-        mOperation = null;
-        mCleanupKind = cleanupKind;
     }
 }
