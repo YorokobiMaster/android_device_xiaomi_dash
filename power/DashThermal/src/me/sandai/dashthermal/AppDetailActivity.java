@@ -145,6 +145,7 @@ public class AppDetailActivity extends CollapsingToolbarBaseActivity {
                 mStockGroup = policy.getString(ThermalServiceClient.KEY_STOCK_GROUP, "");
                 updateAutoSummary();
                 updateSelection();
+                setOptionsEnabled(true);
             }
 
             @Override

@@ -53,9 +53,11 @@ final class ThermalServiceClient {
     private IDashThermalService mService;
     private boolean mStarted;
     private boolean mRetryScheduled;
+    // Lifecycle and callback delivery are confined to the main thread.
+    private boolean mClosed;
     private StateCallback mStateCallback;
 
-    private final IBinder.DeathRecipient mDeathRecipient = () -> mHandler.post(() -> {
+    private final IBinder.DeathRecipient mDeathRecipient = () -> postCallback(() -> {
         mService = null;
         notifyUnavailable();
         scheduleRetry();
@@ -78,9 +80,11 @@ final class ThermalServiceClient {
         mStarted = false;
         mStateCallback = null;
         mHandler.removeCallbacks(mRetryTask);
+        mRetryScheduled = false;
     }
 
     void shutdown() {
+        mClosed = true;
         stop();
         mExecutor.shutdown();
     }
@@ -102,7 +106,7 @@ final class ThermalServiceClient {
                 }
             }
             if (service == null) {
-                mHandler.post(() -> {
+                postCallback(() -> {
                     notifyUnavailable();
                     scheduleRetry();
                 });
@@ -112,14 +116,14 @@ final class ThermalServiceClient {
             try {
                 state = service.getState(mUserId);
             } catch (RemoteException | RuntimeException e) {
-                mHandler.post(() -> {
+                postCallback(() -> {
                     notifyUnavailable();
                     scheduleRetry();
                 });
                 return;
             }
             final boolean ready = state != null && state.getBoolean(KEY_READY, false);
-            mHandler.post(() -> {
+            postCallback(() -> {
                 if (mStateCallback != null) {
                     mStateCallback.onState(ready, ready ? state : null);
                 }
@@ -134,14 +138,14 @@ final class ThermalServiceClient {
         mExecutor.execute(() -> {
             final IDashThermalService service = mService;
             if (service == null) {
-                mHandler.post(callback::onError);
+                postCallback(callback::onError);
                 return;
             }
             try {
                 final Bundle policy = service.getAppPolicy(mUserId, packageName);
-                mHandler.post(() -> callback.onPolicy(policy));
+                postCallback(() -> callback.onPolicy(policy));
             } catch (RemoteException | RuntimeException e) {
-                mHandler.post(callback::onError);
+                postCallback(callback::onError);
             }
         });
     }
@@ -159,7 +163,7 @@ final class ThermalServiceClient {
                 }
             }
             final boolean result = success;
-            mHandler.post(() -> callback.onResult(result));
+            postCallback(() -> callback.onResult(result));
         });
     }
 
@@ -176,7 +180,15 @@ final class ThermalServiceClient {
                 }
             }
             final boolean result = success;
-            mHandler.post(() -> callback.onResult(result));
+            postCallback(() -> callback.onResult(result));
+        });
+    }
+
+    private void postCallback(Runnable callback) {
+        mHandler.post(() -> {
+            if (!mClosed) {
+                callback.run();
+            }
         });
     }
 
