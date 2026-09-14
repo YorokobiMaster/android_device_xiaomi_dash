@@ -1,0 +1,69 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<!-- MIUI ADD: Adapt_MIUIAdaptFrame -->
+<displayConfiguration>
+    <!-- Global Brightness-Nit mapping -->
+    <screenBrightnessMap>
+        <point>
+            <value>0.000854597</value>
+            <nits>2.0</nits>
+        </point>
+        <point>
+            <value>0.499939</value>
+            <nits>600.0</nits>
+        </point>
+        <point>
+            <value>0.593761</value>
+            <nits>800.0</nits>
+        </point>
+        <point>
+            <value>0.836223</value>
+            <nits>2000.0</nits>
+        </point>
+        <point>
+            <value>1.0</value>
+            <nits>3500.0</nits>
+        </point>
+    </screenBrightnessMap>
+    <!-- root node for HBM-->
+    <highBrightnessMode enabled="true">
+        <!-- Transition point brightness from normal to HBM mode -->
+        <transitionPoint>0.499938</transitionPoint>
+        <!-- Minimum lux to enter HBM -->
+        <minimumLux>7180</minimumLux>
+        <!-- Time limitation for HBM-->
+        <timing>
+            <timeWindowSecs>0</timeWindowSecs>
+            <timeMaxSecs>0</timeMaxSecs>
+            <timeMinSecs>0</timeMinSecs>
+        </timing>
+        <!--Refresh rate limitation when the device is in HBM -->
+        <!-- <refreshRate>
+            <minimum>0</minimum>
+            <maximum>0</maximum>
+        </refreshRate> -->
+        <!-- Thermal limitation for HBM -->
+        <thermalStatusLimit>critical</thermalStatusLimit>
+        <!-- Low power mode limitation for HBM -->
+        <allowInLowPowerMode>true</allowInLowPowerMode>
+        <minimumHdrPercentOfScreen>0</minimumHdrPercentOfScreen>
+        <sdrHdrRatioMap>
+            <point>
+                <sdrNits>2.0</sdrNits>
+                <hdrRatio>8.0</hdrRatio>
+            </point>
+            <point>
+                <sdrNits>2000.0</sdrNits>
+                <hdrRatio>8.0</hdrRatio>
+            </point>
+        </sdrHdrRatioMap>
+    </highBrightnessMode>
+    <!-- Normalized brightness/second from the stock DisplayDeviceConfig dump.
+         Stock 4932/3946 integer rates use a 14-bit scale, not AOSP's 255. -->
+    <screenBrightnessRampFastDecrease>0.3010011</screenBrightnessRampFastDecrease>
+    <screenBrightnessRampFastIncrease>0.3010011</screenBrightnessRampFastIncrease>
+    <screenBrightnessRampSlowDecrease>0.24081309</screenBrightnessRampSlowDecrease>
+    <screenBrightnessRampSlowIncrease>0.24081309</screenBrightnessRampSlowIncrease>
+    <ambientLightHorizonLong>1500</ambientLightHorizonLong>
+    <ambientLightHorizonShort>1000</ambientLightHorizonShort>
+</displayConfiguration>
+<!-- END Adapt_MIUIAdaptFrame -->

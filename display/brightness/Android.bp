@@ -1,0 +1,29 @@
+// Copyright (C) 2026 GitHub @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+java_library {
+    name: "dash-brightness",
+    srcs: ["src/**/*.java"],
+    libs: ["services.core"],
+    static_libs: ["vendor.xiaomi.hardware.displayfeature_aidl-V2-java"],
+    platform_apis: true,
+    system_ext_specific: true,
+    installable: true,
+}
+
+android_test {
+    name: "DashBrightnessTests",
+    srcs: ["tests/src/**/*.java"],
+    manifest: "tests/AndroidManifest.xml",
+    static_libs: [
+        "dash-brightness",
+        "services.core",
+        "androidx.test.runner",
+        "androidx.test.ext.junit",
+        "junit",
+        "mockito-target-minus-junit4",
+    ],
+    platform_apis: true,
+    certificate: "platform",
+    test_suites: ["device-tests"],
+    optimize: { enabled: false },
+}

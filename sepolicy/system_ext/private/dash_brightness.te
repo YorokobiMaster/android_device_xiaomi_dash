@@ -1,0 +1,10 @@
+# Copyright (C) 2026 GitHub @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# Types are already declared by dash_livedisplay.te for the retained vendor HAL.
+allow system_server vendor_hal_displayfeature_xiaomi_service:service_manager find;
+binder_call(system_server, vendor_hal_displayfeature_xiaomi_default)
+binder_call(vendor_hal_displayfeature_xiaomi_default, system_server)
+
+# Do not guess board_sensor_temp / thermal_max_brightness labels. Their read failures
+# keep high brightness disabled. Verify realpath and ls -Z on the deployed device.

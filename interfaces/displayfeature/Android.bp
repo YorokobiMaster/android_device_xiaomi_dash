@@ -20,7 +20,7 @@ aidl_interface {
             enabled: false,
         },
         java: {
-            enabled: false,
+            enabled: true,
         },
     },
     frozen: true,

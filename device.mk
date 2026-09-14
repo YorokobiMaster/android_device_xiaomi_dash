@@ -3,6 +3,8 @@
 
 DEVICE_PATH := device/xiaomi/dash
 
+$(call inherit-product, $(DEVICE_PATH)/display/brightness/brightness.mk)
+
 # The stock device is an A/B dynamic-partition device. This stage builds the
 # Lineage-owned framework partitions without packaging an OTA or super image.
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
