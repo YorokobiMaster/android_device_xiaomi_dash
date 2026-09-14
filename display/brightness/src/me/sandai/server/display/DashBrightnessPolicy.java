@@ -10,6 +10,7 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.os.SystemClock;
 import android.util.Slog;
 
 import com.android.server.display.DeviceBrightnessPolicy;
@@ -32,6 +33,11 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     // Local polling/health bounds, not claimed to be stock native notification timings.
     private static final long POLL_MS = 1000;
     private static final long INPUT_LEASE_MS = 5000;
+    private static final int DISPLAY_STATE_NOTIFY = 13;
+    private static final int DISPLAY_STATE_OFF = 0;
+    private static final int DISPLAY_STATE_ON = 1;
+    private static final int HIST_GRAY_STATE = 56;
+    private static final int DISPLAY_FEATURE_COOKIE = 255;
     private final Handler mDisplayHandler;
     private final Runnable mChanged;
     private HandlerThread mThread;
@@ -46,6 +52,7 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
 
     // Worker-owned fields, never used directly by the display or Binder threads.
     private boolean mRunning;
+    private boolean mWorkerAutomatic;
     private int mWorkerGeneration;
     private ThermalBrightnessTable mTable;
     private float mTemperature = Float.NaN;
@@ -56,10 +63,18 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     private IBinder mBinder;
     private IBinder.DeathRecipient mDeath;
     private IDisplayFeatureCallback mCallback;
+    private boolean mCallbackRegistered;
+    private boolean mDisplayStateSynced;
+    private boolean mHistogramEnabled;
+    private volatile long mHistogramGeneration;
+    private long mGrayCallbackCount;
+    private long mLastGrayCallbackUptimeMillis;
     private final Runnable mPoll = this::poll;
 
     private record Inputs(ThermalBrightnessTable table, float temperature, float safety,
-            Integer condition, int gray) { }
+            Integer condition, int gray, boolean callbackRegistered,
+            boolean displayStateSynced, boolean histogramEnabled, long grayCallbackCount,
+            long lastGrayCallbackUptimeMillis) { }
 
     public DashBrightnessPolicy(Context context, Handler handler, Runnable onChanged) {
         mDisplayHandler = handler;
@@ -75,7 +90,17 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
         if (mStopped) return;
         mAutomatic = automatic;
         mLux = automatic ? ambientLux : 6000;
-        if (mInteractive == interactive) return;
+        if (mInteractive == interactive) {
+            final int generation = mGeneration;
+            if (mWorker != null) {
+                mWorker.post(() -> {
+                    if (!mRunning || mWorkerGeneration != generation) return;
+                    mWorkerAutomatic = automatic;
+                    setHistogramEnabled(automatic);
+                });
+            }
+            return;
+        }
         mInteractive = interactive;
         mInputs = null;
         mDisplayHandler.removeCallbacks(mExpire);
@@ -88,8 +113,13 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
         if (mWorker == null) return;
         mWorker.post(() -> {
             mRunning = interactive;
+            mWorkerAutomatic = automatic;
             mWorkerGeneration = generation;
             mWorker.removeCallbacks(mPoll);
+            if (!interactive) {
+                setHistogramEnabled(false);
+                notifyDisplayOff();
+            }
             disconnect();
             mTemperature = mSafety = Float.NaN;
             mCondition = null;
@@ -159,9 +189,14 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
             public void displayfeatureInfoChanged(int caseId, int value,
                     float red, float green, float blue) {
                 if (caseId != 95000) return;
+                final long histogramGeneration = mHistogramGeneration;
                 mWorker.post(() -> {
-                    if (!mRunning || mCallback != this || mBinder != binder) return;
+                    if (!mRunning || mCallback != this || mBinder != binder
+                            || !mHistogramEnabled
+                            || mHistogramGeneration != histogramGeneration) return;
                     mGray = value >= 0 && value <= 255 ? value : -1;
+                    mGrayCallbackCount++;
+                    mLastGrayCallbackUptimeMillis = SystemClock.uptimeMillis();
                     publish();
                 });
             }
@@ -177,10 +212,43 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
         try {
             binder.linkToDeath(death, 0);
             remote.registerCallback(0, callback);
+            mCallbackRegistered = true;
+            remote.setFeature(0, DISPLAY_STATE_NOTIFY, DISPLAY_STATE_ON,
+                    DISPLAY_FEATURE_COOKIE);
+            mDisplayStateSynced = true;
+            setHistogramEnabled(mWorkerAutomatic);
+            publish();
         } catch (RemoteException | RuntimeException e) {
-            Slog.w(TAG, "DisplayFeature callback registration failed", e);
+            Slog.w(TAG, "DisplayFeature setup failed", e);
             disconnect();
             publish();
+        }
+    }
+
+    private void setHistogramEnabled(boolean enabled) {
+        if (mRemote == null || mHistogramEnabled == enabled) return;
+        mHistogramGeneration++;
+        try {
+            mRemote.setFeature(0, HIST_GRAY_STATE, enabled ? 1 : 0,
+                    DISPLAY_FEATURE_COOKIE);
+            mHistogramEnabled = enabled;
+            if (!enabled) mGray = -1;
+            publish();
+        } catch (RemoteException | RuntimeException e) {
+            Slog.w(TAG, "DisplayFeature grayscale sampling update failed", e);
+            disconnect();
+            publish();
+        }
+    }
+
+    private void notifyDisplayOff() {
+        if (mRemote == null || !mDisplayStateSynced) return;
+        try {
+            mRemote.setFeature(0, DISPLAY_STATE_NOTIFY, DISPLAY_STATE_OFF,
+                    DISPLAY_FEATURE_COOKIE);
+            mDisplayStateSynced = false;
+        } catch (RemoteException | RuntimeException e) {
+            Slog.w(TAG, "DisplayFeature state update failed", e);
         }
     }
 
@@ -194,21 +262,36 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
         mCallback = null;
         mDeath = null;
         mGray = -1;
+        mHistogramGeneration++;
+        boolean histogramEnabled = mHistogramEnabled;
+        mCallbackRegistered = false;
+        mHistogramEnabled = false;
+        mDisplayStateSynced = false;
         if (binder == null) return;
-        try {
-            if (binder.isBinderAlive()) remote.unregisterCallback(0, callback);
-        } catch (RemoteException | RuntimeException e) {
-            Slog.w(TAG, "DisplayFeature callback unregister failed", e);
-        } finally {
+        if (binder.isBinderAlive()) {
+            if (histogramEnabled) {
+                try {
+                    remote.setFeature(0, HIST_GRAY_STATE, 0, DISPLAY_FEATURE_COOKIE);
+                } catch (RemoteException | RuntimeException e) {
+                    Slog.w(TAG, "DisplayFeature grayscale sampling cleanup failed", e);
+                }
+            }
             try {
-                binder.unlinkToDeath(death, 0);
-            } catch (NoSuchElementException ignored) { }
+                remote.unregisterCallback(0, callback);
+            } catch (RemoteException | RuntimeException e) {
+                Slog.w(TAG, "DisplayFeature callback unregister failed", e);
+            }
         }
+        try {
+            binder.unlinkToDeath(death, 0);
+        } catch (NoSuchElementException ignored) { }
     }
 
     private void publish() {
         final int generation = mWorkerGeneration;
-        final Inputs input = new Inputs(mTable, mTemperature, mSafety, mCondition, mGray);
+        final Inputs input = new Inputs(mTable, mTemperature, mSafety, mCondition, mGray,
+                mCallbackRegistered, mDisplayStateSynced, mHistogramEnabled,
+                mGrayCallbackCount, mLastGrayCallbackUptimeMillis);
         mDisplayHandler.post(() -> {
             if (mStopped || !mInteractive || generation != mGeneration) return;
             mInputs = input;
@@ -221,9 +304,20 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     @Override
     public void stop() {
         if (mStopped) return;
-        update(false, false, Float.NaN);
         mStopped = true;
-        if (mWorker != null) mWorker.post(() -> mThread.quitSafely());
+        mInteractive = false;
+        mAutomatic = false;
+        mInputs = null;
+        mGeneration++;
+        mDisplayHandler.removeCallbacks(mExpire);
+        if (mWorker != null) mWorker.post(() -> {
+            mRunning = false;
+            mWorkerAutomatic = false;
+            mWorker.removeCallbacks(mPoll);
+            // Policy disposal does not imply that the physical display is off.
+            disconnect();
+            mThread.quitSafely();
+        });
     }
 
     @Override
