@@ -145,13 +145,17 @@ public final class DashAovBridgeService extends Service {
 
     private void deliverPresence() {
         IDashAovCallback callback = mClientCallback;
-        clearClient();
-        if (callback == null) return;
+        if (callback == null) {
+            clearClient();
+            return;
+        }
         mCallbackWakeLock.acquire(CALLBACK_WAKELOCK_MS);
         try {
             callback.onPresenceDetected();
         } catch (RemoteException e) {
             Log.w(TAG, "Unable to notify wake gesture controller", e);
+        } finally {
+            clearClient();
         }
     }
 

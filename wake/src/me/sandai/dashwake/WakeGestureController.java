@@ -36,6 +36,12 @@ import me.sandai.dashwake.aov.IDashAovCallback;
 final class WakeGestureController implements SensorEventListener {
     private static final String TAG = "DashWake";
     private static final int PICKUP_SENSOR_TYPE = 33171036;
+    private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
+    private static final String DOZE_PULSE_ACTION = "com.android.systemui.doze.pulse";
+    // Stock-style polling: arm AOV for a short window every period instead of
+    // streaming continuously. 5 s matches the stock smart-AOD re-check cadence.
+    private static final long GAZE_POLL_WINDOW_MS = 3_000;
+    private static final long GAZE_POLL_PERIOD_MS = 5_000;
     private static final ComponentName AOV_BRIDGE = new ComponentName(
             "me.sandai.dashwake", "me.sandai.dashwake.aov.DashAovBridgeService");
 
@@ -47,7 +53,6 @@ final class WakeGestureController implements SensorEventListener {
     private final DisplayManager mDisplayManager;
     private final Sensor mPickupSensor;
     private boolean mPickupRegistered;
-    private boolean mWakeRequested;
     private AovConnection mAovConnection;
 
     WakeGestureController(Context context) {
@@ -95,9 +100,6 @@ final class WakeGestureController implements SensorEventListener {
         mContext.registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
-                    mWakeRequested = false;
-                }
                 if (Intent.ACTION_USER_SWITCHED.equals(intent.getAction())) {
                     stopAov();
                     WakeSettings.migrate(mContext.getContentResolver(),
@@ -110,7 +112,7 @@ final class WakeGestureController implements SensorEventListener {
     }
 
     private boolean canWake() {
-        return !mWakeRequested && !mPowerManager.isInteractive();
+        return !mPowerManager.isInteractive();
     }
 
     private boolean isPickupEnabled() {
@@ -170,14 +172,53 @@ final class WakeGestureController implements SensorEventListener {
 
     private void wake(String source) {
         if (!canWake()) return;
-        mWakeRequested = true;
-        update();
         Log.i(TAG, "Wake source=" + source);
         mPowerManager.wakeUp(SystemClock.uptimeMillis(), PowerManager.WAKE_REASON_GESTURE,
                 "me.sandai.dashwake:" + source);
+        update();
     }
 
+    // Gaze never wakes the device; it only lights the ambient display through
+    // SystemUI's exported pulse trigger, like the stock smart-AOD mode.
+    private void pulse() {
+        Log.i(TAG, "Gaze pulse");
+        mContext.sendBroadcast(new Intent(DOZE_PULSE_ACTION).setPackage(SYSTEMUI_PACKAGE));
+    }
+
+    private void scheduleNextPoll() {
+        mHandler.postDelayed(mPollTask, GAZE_POLL_PERIOD_MS);
+    }
+
+    private final Runnable mPollTask = () -> {
+        AovConnection connection = mAovConnection;
+        if (connection == null || connection.bridge == null || connection.callback == null
+                || !canDetectGaze()) {
+            return;
+        }
+        try {
+            connection.bridge.start(connection.callback);
+            mHandler.postDelayed(mPollTimeout, GAZE_POLL_WINDOW_MS);
+        } catch (RemoteException e) {
+            Log.w(TAG, "Unable to start AOV poll", e);
+            scheduleNextPoll();
+        }
+    };
+
+    private final Runnable mPollTimeout = () -> {
+        AovConnection connection = mAovConnection;
+        if (connection != null && connection.bridge != null) {
+            try {
+                connection.bridge.stop();
+            } catch (RemoteException e) {
+                Log.w(TAG, "Unable to stop AOV poll", e);
+            }
+        }
+        scheduleNextPoll();
+    };
+
     private void stopAov() {
+        mHandler.removeCallbacks(mPollTask);
+        mHandler.removeCallbacks(mPollTimeout);
         AovConnection connection = mAovConnection;
         if (connection == null) return;
         mAovConnection = null;
@@ -207,18 +248,18 @@ final class WakeGestureController implements SensorEventListener {
                 @Override
                 public void onPresenceDetected() {
                     mHandler.post(() -> {
-                        if (mAovConnection == AovConnection.this
-                                && callback == this && canDetectGaze()) {
-                            wake("gaze");
+                        if (mAovConnection != AovConnection.this || callback != this) {
+                            return;
+                        }
+                        mHandler.removeCallbacks(mPollTimeout);
+                        if (canDetectGaze()) {
+                            pulse();
+                            scheduleNextPoll();
                         }
                     });
                 }
             };
-            try {
-                bridge.start(callback);
-            } catch (RemoteException e) {
-                Log.w(TAG, "Unable to start AOV source", e);
-            }
+            mPollTask.run();
         }
 
         @Override

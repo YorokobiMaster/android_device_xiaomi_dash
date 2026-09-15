@@ -1,9 +1,15 @@
 # DashWake
 
-One persistent APK handles double-tap configuration, pickup wake and gaze wake.
-Pickup and gaze call `PowerManager.wakeUp()`; double-tap reports `KEY_WAKEUP`
-through the existing touch driver. SystemUI owns the lockscreen and optional
-always-on display. No gesture requests an AOD pulse.
+One persistent APK handles double-tap configuration, pickup wake and gaze
+light. Pickup calls `PowerManager.wakeUp()`; double-tap reports `KEY_WAKEUP`
+through the existing touch driver. Gaze never wakes the device: following the
+stock smart-AOD model, it polls the AOV pipeline (3 s window every 5 s) while
+the screen is off and, on presence, triggers a doze pulse through SystemUI's
+exported `com.android.systemui.doze.pulse` broadcast. Repeated pulses extend
+the current pulse, so the ambient display stays lit while the user keeps
+looking and times out on its own after they look away. SystemUI owns the
+lockscreen and optional always-on display; pulses are dropped unless the
+device is dozing, so the gaze feature requires ambient display / AOD.
 
 `WakeSettingsProvider` supplies pickup and gaze switches under Settings > Display.
 The standard double-tap switch uses `Settings.Secure.DOUBLE_TAP_TO_WAKE` and
