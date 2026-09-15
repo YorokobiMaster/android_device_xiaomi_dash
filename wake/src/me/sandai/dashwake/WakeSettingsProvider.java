@@ -13,7 +13,7 @@ import com.android.settingslib.drawer.ProviderSwitch;
 
 import java.util.List;
 
-/** Supplies the pickup and gaze wake switches on Settings > Display. */
+/** Supplies the pickup, gaze and put-down switches on Settings > Display. */
 public final class WakeSettingsProvider extends EntriesProvider {
     @Override
     protected List<? extends EntryController> createEntryControllers() {
@@ -22,7 +22,9 @@ public final class WakeSettingsProvider extends EntriesProvider {
                 new WakeSwitchController(WakeSettings.PICKUP_ENABLED,
                         R.string.pickup_wake_title, R.string.pickup_wake_summary, -10),
                 new WakeSwitchController(WakeSettings.GAZE_ENABLED,
-                        R.string.gaze_wake_title, R.string.gaze_wake_summary, -11));
+                        R.string.gaze_wake_title, R.string.gaze_wake_summary, -11),
+                new WakeSwitchController(WakeSettings.PUTDOWN_ENABLED,
+                        R.string.putdown_sleep_title, R.string.putdown_sleep_summary, -12));
     }
 
     private final class WakeSwitchController extends EntryController implements ProviderSwitch {

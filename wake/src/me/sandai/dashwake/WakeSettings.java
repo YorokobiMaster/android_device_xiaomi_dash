@@ -11,6 +11,7 @@ import android.provider.Settings;
 final class WakeSettings {
     static final String PICKUP_ENABLED = "dash_pickup_wake_enabled";
     static final String GAZE_ENABLED = "dash_gaze_wake_enabled";
+    static final String PUTDOWN_ENABLED = "dash_put_down_sleep_enabled";
 
     private WakeSettings() {}
 

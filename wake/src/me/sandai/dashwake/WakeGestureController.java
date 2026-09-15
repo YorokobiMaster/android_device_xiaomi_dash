@@ -6,6 +6,7 @@
 package me.sandai.dashwake;
 
 import android.app.ActivityManager;
+import android.app.KeyguardManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -52,7 +53,9 @@ final class WakeGestureController implements SensorEventListener {
     private final SensorPrivacyManager mPrivacyManager;
     private final DisplayManager mDisplayManager;
     private final Sensor mPickupSensor;
+    private final KeyguardManager mKeyguardManager;
     private boolean mPickupRegistered;
+    private boolean mWokeByPickup;
     private AovConnection mAovConnection;
 
     WakeGestureController(Context context) {
@@ -63,6 +66,7 @@ final class WakeGestureController implements SensorEventListener {
         mPrivacyManager = context.getSystemService(SensorPrivacyManager.class);
         mDisplayManager = context.getSystemService(DisplayManager.class);
         mPickupSensor = mSensorManager.getDefaultSensor(PICKUP_SENSOR_TYPE, true);
+        mKeyguardManager = context.getSystemService(KeyguardManager.class);
     }
 
     void start() {
@@ -78,6 +82,9 @@ final class WakeGestureController implements SensorEventListener {
                 false, settingsObserver, UserHandle.USER_ALL);
         mContext.getContentResolver().registerContentObserver(
                 Settings.Secure.getUriFor(WakeSettings.GAZE_ENABLED),
+                false, settingsObserver, UserHandle.USER_ALL);
+        mContext.getContentResolver().registerContentObserver(
+                Settings.Secure.getUriFor(WakeSettings.PUTDOWN_ENABLED),
                 false, settingsObserver, UserHandle.USER_ALL);
         mPrivacyManager.addSensorPrivacyListener(SensorPrivacyManager.Sensors.CAMERA,
                 (sensor, enabled) -> update());
@@ -96,11 +103,15 @@ final class WakeGestureController implements SensorEventListener {
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_SCREEN_ON);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_USER_PRESENT);
         filter.addAction(Intent.ACTION_USER_SWITCHED);
         mContext.registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (Intent.ACTION_USER_SWITCHED.equals(intent.getAction())) {
+                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                    mWokeByPickup = false;
+                } else if (Intent.ACTION_USER_SWITCHED.equals(intent.getAction())) {
+                    mWokeByPickup = false;
                     stopAov();
                     WakeSettings.migrate(mContext.getContentResolver(),
                             ActivityManager.getCurrentUser());
@@ -120,6 +131,21 @@ final class WakeGestureController implements SensorEventListener {
                 WakeSettings.PICKUP_ENABLED, ActivityManager.getCurrentUser());
     }
 
+    private boolean isPutDownEnabled() {
+        return WakeSettings.isEnabled(mContext.getContentResolver(),
+                WakeSettings.PUTDOWN_ENABLED, ActivityManager.getCurrentUser());
+    }
+
+    // Stock registration window: listen while the screen is off so a lift can
+    // wake, and after a pickup wake keep listening while the keyguard is still
+    // up so a put-down can end the session. Unlocking unregisters the sensor.
+    private boolean shouldListenPickup() {
+        if (canWake()) {
+            return isPickupEnabled();
+        }
+        return mWokeByPickup && isPutDownEnabled() && mKeyguardManager.isKeyguardLocked();
+    }
+
     private boolean canDetectGaze() {
         if (!canWake() || !WakeSettings.isEnabled(mContext.getContentResolver(),
                 WakeSettings.GAZE_ENABLED, ActivityManager.getCurrentUser())
@@ -134,7 +160,7 @@ final class WakeGestureController implements SensorEventListener {
     }
 
     private void update() {
-        boolean pickup = canWake() && isPickupEnabled() && mPickupSensor != null;
+        boolean pickup = mPickupSensor != null && shouldListenPickup();
         if (pickup && !mPickupRegistered) {
             mPickupRegistered = mSensorManager.registerListener(
                     this, mPickupSensor, SensorManager.SENSOR_DELAY_NORMAL, mHandler);
@@ -161,9 +187,17 @@ final class WakeGestureController implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (mPickupRegistered && event.sensor == mPickupSensor && event.values.length != 0
-                && event.values[0] == 1.0f && isPickupEnabled()) {
+        if (!mPickupRegistered || event.sensor != mPickupSensor || event.values.length == 0) {
+            return;
+        }
+        float value = event.values[0];
+        if (value == 1.0f && canWake() && isPickupEnabled()) {
             wake("pickup");
+        } else if ((value == 2.0f || value == 0.0f) && mWokeByPickup && !canWake()
+                && isPutDownEnabled() && mKeyguardManager.isKeyguardLocked()) {
+            Log.i(TAG, "Put down after pickup wake; going to sleep");
+            mWokeByPickup = false;
+            mPowerManager.goToSleep(SystemClock.uptimeMillis());
         }
     }
 
@@ -175,6 +209,9 @@ final class WakeGestureController implements SensorEventListener {
         Log.i(TAG, "Wake source=" + source);
         mPowerManager.wakeUp(SystemClock.uptimeMillis(), PowerManager.WAKE_REASON_GESTURE,
                 "me.sandai.dashwake:" + source);
+        if ("pickup".equals(source)) {
+            mWokeByPickup = true;
+        }
         update();
     }
 
