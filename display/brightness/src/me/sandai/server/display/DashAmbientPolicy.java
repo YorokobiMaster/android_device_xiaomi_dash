@@ -13,8 +13,10 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Slog;
 
 import com.android.server.display.DeviceAmbientPolicy;
 
@@ -23,17 +25,22 @@ import java.util.Map;
 
 /** Default internal-display policy. ABC owns the primary ALS and the only evaluation timer. */
 public final class DashAmbientPolicy implements DeviceAmbientPolicy {
+    private static final String TAG = "DashAmbientPolicy";
     private static final int ASSIST_TYPE = 33171055;
     private static final int NON_UI_TYPE = 33171027;
+    private static Handler sCameraHandler;
     private final SensorManager mSensors;
     private final CameraManager mCameras;
     private final Handler mHandler;
+    private final Handler mCameraHandler;
     private final Runnable mRequestEvaluation;
     private final DashAmbientEstimator mEstimator = new DashAmbientEstimator();
     private final Map<String, Boolean> mTorchStates = new HashMap<>();
     private SensorEventListener mListener;
-    private CameraManager.TorchCallback mTorchCallback;
+    private CameraManager.TorchCallback mWorkerTorchCallback;
+    private int mWorkerTorchGeneration;
     private RuntimeException mFailure;
+    private boolean mTorchReady;
     private boolean mActive;
     private int mGeneration;
     private long mStartUptime;
@@ -42,10 +49,25 @@ public final class DashAmbientPolicy implements DeviceAmbientPolicy {
     // Construction must not register sensors or camera callbacks.
     public DashAmbientPolicy(Context context, SensorManager sensorManager, Handler handler,
             Runnable requestEvaluation) {
+        this(context, sensorManager, handler, requestEvaluation, getCameraHandler());
+    }
+
+    DashAmbientPolicy(Context context, SensorManager sensorManager, Handler handler,
+            Runnable requestEvaluation, Handler cameraHandler) {
         mSensors = sensorManager;
         mCameras = context.getSystemService(CameraManager.class);
         mHandler = handler;
+        mCameraHandler = cameraHandler;
         mRequestEvaluation = requestEvaluation;
+    }
+
+    private static synchronized Handler getCameraHandler() {
+        if (sCameraHandler == null) {
+            HandlerThread thread = new HandlerThread(TAG + "Camera");
+            thread.start();
+            sCameraHandler = new Handler(thread.getLooper());
+        }
+        return sCameraHandler;
     }
 
     @Override
@@ -57,9 +79,12 @@ public final class DashAmbientPolicy implements DeviceAmbientPolicy {
         mStartUptime = uptimeMillis;
         mStartElapsedNanos = SystemClock.elapsedRealtimeNanos();
         mFailure = null;
+        mTorchReady = false;
         mEstimator.start(uptimeMillis);
         try {
-            registerTorch(generation);
+            if (!mCameraHandler.post(() -> registerTorch(generation))) {
+                throw new IllegalStateException("Dash camera worker unavailable");
+            }
             mListener = new SensorEventListener() {
                 private long mLastAssistNanos = -1;
                 private long mLastNonUiNanos = -1;
@@ -79,7 +104,7 @@ public final class DashAmbientPolicy implements DeviceAmbientPolicy {
                                 if (event.timestamp < mLastAssistNanos) return;
                                 mLastAssistNanos = event.timestamp;
                                 // Camera callbacks are asynchronous: wait for initial torch state.
-                                if (mTorchStates.containsValue(null)) return;
+                                if (!mTorchReady || mTorchStates.containsValue(null)) return;
                                 mEstimator.assist(time, event.values[0]);
                                 break;
                             case NON_UI_TYPE:
@@ -130,38 +155,61 @@ public final class DashAmbientPolicy implements DeviceAmbientPolicy {
     }
 
     private void registerTorch(int generation) {
-        if (mCameras == null) throw new IllegalStateException("CameraManager unavailable");
-        mTorchStates.clear();
+        CameraManager.TorchCallback callback = null;
         try {
+            if (mCameras == null) throw new IllegalStateException("CameraManager unavailable");
+            Map<String, Boolean> states = new HashMap<>();
             for (String id : mCameras.getCameraIdList()) {
                 CameraCharacteristics info = mCameras.getCameraCharacteristics(id);
                 if (Boolean.TRUE.equals(info.get(CameraCharacteristics.FLASH_INFO_AVAILABLE))
                         && !isVirtualCamera(info)) {
-                    mTorchStates.put(id, null);
+                    states.put(id, null);
                 }
             }
-        } catch (CameraAccessException failure) {
-            throw new IllegalStateException("Cannot identify dash torch cameras", failure);
+            callback = new CameraManager.TorchCallback() {
+                @Override
+                public void onTorchModeUnavailable(String cameraId) {
+                    changed(cameraId, true);
+                }
+
+                @Override
+                public void onTorchModeChanged(String cameraId, boolean enabled) {
+                    changed(cameraId, enabled);
+                }
+
+                private void changed(String id, boolean enabled) {
+                    mHandler.post(() -> updateTorch(generation, id, enabled));
+                }
+            };
+            mCameras.registerTorchCallback(callback, mCameraHandler);
+            mWorkerTorchCallback = callback;
+            mWorkerTorchGeneration = generation;
+            mHandler.post(() -> finishTorchRegistration(generation, states));
+        } catch (CameraAccessException | RuntimeException failure) {
+            if (callback != null) unregisterTorch(callback);
+            mHandler.post(() -> failTorchRegistration(generation, failure));
         }
-        mTorchCallback = new CameraManager.TorchCallback() {
-            @Override
-            public void onTorchModeUnavailable(String cameraId) {
-                changed(cameraId, true);
-            }
+    }
 
-            @Override
-            public void onTorchModeChanged(String cameraId, boolean enabled) {
-                changed(cameraId, enabled);
-            }
+    private void finishTorchRegistration(int generation, Map<String, Boolean> states) {
+        if (!mActive || generation != mGeneration) return;
+        mTorchStates.clear();
+        mTorchStates.putAll(states);
+        mTorchReady = true;
+    }
 
-            private void changed(String id, boolean enabled) {
-                if (!mActive || generation != mGeneration || !mTorchStates.containsKey(id)) return;
-                mTorchStates.put(id, enabled);
-                mEstimator.torch(SystemClock.uptimeMillis(), mTorchStates.containsValue(true));
-                mRequestEvaluation.run();
-            }
-        };
-        mCameras.registerTorchCallback(mTorchCallback, mHandler);
+    private void failTorchRegistration(int generation, Exception failure) {
+        if (!mActive || generation != mGeneration) return;
+        mFailure = new IllegalStateException("Cannot monitor dash torch cameras", failure);
+        mRequestEvaluation.run();
+    }
+
+    private void updateTorch(int generation, String id, boolean enabled) {
+        if (!mActive || generation != mGeneration || !mTorchReady
+                || !mTorchStates.containsKey(id)) return;
+        mTorchStates.put(id, enabled);
+        mEstimator.torch(SystemClock.uptimeMillis(), mTorchStates.containsValue(true));
+        mRequestEvaluation.run();
     }
 
     private static boolean isVirtualCamera(CameraCharacteristics info) {
@@ -187,17 +235,32 @@ public final class DashAmbientPolicy implements DeviceAmbientPolicy {
     public void stop() {
         checkThread();
         mActive = false;
-        ++mGeneration;
+        final int generation = ++mGeneration;
         SensorEventListener listener = mListener;
-        CameraManager.TorchCallback callback = mTorchCallback;
         mListener = null;
-        mTorchCallback = null;
         mFailure = null;
+        mTorchReady = false;
         mTorchStates.clear();
         try {
             if (listener != null) mSensors.unregisterListener(listener);
         } finally {
-            if (callback != null) mCameras.unregisterTorchCallback(callback);
+            mCameraHandler.post(() -> stopTorch(generation));
+        }
+    }
+
+    private void stopTorch(int generation) {
+        if (mWorkerTorchCallback == null || mWorkerTorchGeneration > generation) return;
+        CameraManager.TorchCallback callback = mWorkerTorchCallback;
+        mWorkerTorchCallback = null;
+        mWorkerTorchGeneration = 0;
+        unregisterTorch(callback);
+    }
+
+    private void unregisterTorch(CameraManager.TorchCallback callback) {
+        try {
+            mCameras.unregisterTorchCallback(callback);
+        } catch (RuntimeException failure) {
+            Slog.w(TAG, "Cannot unregister dash torch callback", failure);
         }
     }
 
