@@ -6,7 +6,10 @@
 # kernel it only stores a thermal_level value with no charger-side effect.
 # (An earlier full-charge hard crash while poking charge nodes was NOT
 # reproduced as caused by charge_control_limit; root cause undetermined.)
-genfscon sysfs /class/power_supply/battery/input_suspend u:object_r:sysfs_dash_charge:s0
+# genfscon labels real sysfs objects and does not follow symlinks, so the
+# class entry must be spelled as its resolved platform path; labeling
+# /class/power_supply/battery/input_suspend is a no-op.
+genfscon sysfs /devices/platform/battery-manager/power_supply/battery/input_suspend u:object_r:sysfs_dash_charge:s0
 
 # Real path resolved on dash; all other thermal nodes retain their vendor labels.
 genfscon sysfs /devices/virtual/thermal/thermal_message/sconfig u:object_r:sysfs_dash_sconfig:s0

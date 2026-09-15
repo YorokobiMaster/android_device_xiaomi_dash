@@ -6,6 +6,9 @@ type dash_health_exec, system_file_type, exec_type, file_type;
 
 type sysfs_dash_charge, sysfs_type, fs_type;
 
+# sysfs_batteryinfo comes from AOSP system/sepolicy/public/file.te; a bare
+# redeclaration here is a duplicate-type error, unlike the dash_led.te pattern.
+
 init_daemon_domain(dash_health)
 hal_server_domain(dash_health, hal_lineage_health)
 
@@ -16,6 +19,10 @@ binder_call(dash_health, servicemanager)
 # NDK binder opens /sys/kernel/tracing/trace_marker on the first transaction.
 dontaudit dash_health self:capability { dac_override dac_read_search };
 
-# Charging toggle backend. input_suspend is labeled by the genfscon below;
-# everything else under power_supply stays off-limits.
+# Charging toggle backend. input_suspend is labeled by the genfscon in
+# genfs_contexts; everything else under power_supply stays off-limits.
+# Path traversal crosses battery-manager/power_supply (sysfs_batteryinfo)
+# and the battery dir itself (sysfs_battery_supply).
 allow dash_health sysfs_dash_charge:file rw_file_perms;
+allow dash_health sysfs_batteryinfo:dir search;
+allow dash_health sysfs_battery_supply:dir search;
