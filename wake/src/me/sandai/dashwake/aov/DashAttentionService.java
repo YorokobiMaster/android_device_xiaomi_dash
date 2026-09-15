@@ -96,27 +96,39 @@ public final class DashAttentionService extends AttentionService {
     }
 
     private void complete(int result) {
-        AttentionCallback callback = mPending;
-        stopCheck();
+        AttentionCallback callback = detachCheck();
         if (callback != null) {
             callback.onSuccess(result, System.currentTimeMillis());
         }
+        closeClient();
     }
 
     private void fail(int error) {
-        AttentionCallback callback = mPending;
-        stopCheck();
+        AttentionCallback callback = detachCheck();
         if (callback != null) {
             callback.onFailure(error);
         }
+        closeClient();
     }
 
-    private void stopCheck() {
+    // Deliver the verdict before touching the HAL: close() transacts vendor
+    // STOP/DISCONNECT synchronously and must not eat the framework's 2 s budget.
+    private AttentionCallback detachCheck() {
         mWorker.removeCallbacks(mNoFrameTimeout);
+        AttentionCallback callback = mPending;
+        mPending = null;
+        return callback;
+    }
+
+    private void closeClient() {
         if (mClient != null) {
             mClient.close();
             mClient = null;
         }
-        mPending = null;
+    }
+
+    private void stopCheck() {
+        detachCheck();
+        closeClient();
     }
 }
