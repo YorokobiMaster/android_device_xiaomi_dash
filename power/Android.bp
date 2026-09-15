@@ -36,6 +36,18 @@ android_test {
     optimize: { enabled: false },
 }
 
+android_app {
+    name: "DashPowerKeeperCompat",
+    srcs: ["PowerKeeperCompat/src/**/*.java"],
+    manifest: "PowerKeeperCompat/AndroidManifest.xml",
+    static_libs: ["dash-thermal-client"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    optimize: { enabled: true },
+}
+
 // Shared by the platform-signed Settings frontend; the server uses the same AIDL source.
 java_library {
     name: "dash-thermal-client",

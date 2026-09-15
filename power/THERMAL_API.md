@@ -2,7 +2,7 @@
 
 Copyright (C) 2026 GitHub @YorokobiMaster. Apache-2.0.
 
-前端负责原生设置页面；选表、持久化、前台跟踪和 sysfs 写入均由后端负责。接口版本 2。当前验收进度见 `docs/dash/power-hal/reports/thermal-backend.md`，不能把接口文档当成已部署证明。
+前端负责原生设置页面；选表、持久化、前台跟踪和 sysfs 写入均由后端负责。接口版本 3。当前验收进度见 `docs/dash/power-hal/reports/thermal-backend.md`，不能把接口文档当成已部署证明。
 
 ## 接入
 
@@ -18,18 +18,19 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 
 | 方法 | 契约 |
 | --- | --- |
-| `getApiVersion()` | 返回 2；新增方法前检查版本，旧方法的 transaction 编号不变。 |
+| `getApiVersion()` | 返回 3；新增方法前检查版本，旧方法的 transaction 编号不变。 |
 | `getState(userId)` | 返回下表 Bundle；读取该用户的开关和覆盖。 |
 | `getAppPolicy(userId, packageName)` | 返回 `defaultProfile`、`overrideProfile`、`selectedProfile`（int）和 `stockGroup`（String）。selected 是配置解析结果。 |
 | `setAppProfile(userId, packageName, profileId)` | `-1` 删除覆盖、恢复自动；其他值必须属于可手选枚举。成功返回表示文件同步、原子替换及父目录同步均已完成，随后异步重算当前前台；不表示 daemon 已加载。 |
 | `setEnabled(userId, enabled)` | 原子保存开关，保留该用户覆盖；关闭当前用户功能后异步请求 normal。 |
 | `setPerformanceMode(userId, enabled)` | 保存均衡(false)/性能(true)，异步重算当前前台；只影响自动策略，保留总开关和全部手动覆盖。工作资料应使用主用户模式，不接受向资料用户设置独立模式。 |
+| `notifyCameraRecordState(recording, quality, fps)` | 仅供平台签名的 `com.miui.powerkeeper` 相机兼容桥调用；把原厂相机的录像广播转换为场景输入。普通设置客户端不得调用。 |
 
 `getState` 字段：
 
 | 字段 | 类型 / 含义 |
 | --- | --- |
-| version | int，接口版本 2 |
+| version | int，接口版本 3 |
 | ready | boolean，默认数据和监听初始化完成；独立于 daemon 健康状态，不表示监听就绪或已加载 |
 | enabled | boolean，所查询用户的配置开关 |
 | performanceMode | boolean，所查询用户（工作资料取其主用户）的模式；默认 false，表示配置选择，不是 daemon 加载确认 |
@@ -44,6 +45,10 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 | appliedConfirmed | boolean，当前恒 false：没有承诺 daemon 的加载 ACK |
 | reason | String：starting、automatic、override、disabled、profile-disabled、screen-off、locked、user-locked、no-focused-app、error |
 | error | String，最近一次运行错误；空串表示最近一次重算未报错 |
+| eventError | String，通话或电源事件源最近一次采样错误；失败的输入按关闭处理 |
+| scenarioId | int，原厂场景树仲裁结果；手动覆盖时为 -1 |
+| cameraElement | int，录像输入元素：1=4K60、2=4K30/8K、99=关闭/其他规格 |
+| offHook / lowTempCharge / reverseCharge | boolean，最近一次参与仲裁的事件输入 |
 | selectableProfiles | int[]，`[-1,0,50,19,18,20,25]` |
 | overrides | Bundle，包名键 → int 档位，仅所查询用户 |
 
@@ -56,7 +61,7 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 2026-09-16：用户确定默认均衡；模式只转换自动策略，手动覆盖优先，未分类始终 normal。
 模式保存在同一个 `/data/system_de/<user>/dash-thermal.json`，增加可选布尔字段
 `performanceMode`；旧版本 1 文件缺少该字段时按 false 读取，旧覆盖保留。
-配置 schema 仍为 1，API 版本为 2；两者独立。
+配置 schema 仍为 1，API 版本为 3；两者独立。
 
 | ID | 原厂名 | 建议手选名称 |
 | --- | --- | --- |
@@ -88,9 +93,11 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 
 ## 适用范围
 
-内置屏幕上取得焦点、请求可见（`isVisibleRequested`）的叶任务决定策略，分屏/PiP 按同一焦点规则；不等待转场提交可见性或首帧绘制。屏灭、锁屏、无有效应用、用户未解锁或功能关闭时目标为 0。工作资料使用对应资料用户的覆盖，当前主用户关闭功能时整体暂停。回到其他应用即重新选表。
+内置屏幕上取得焦点、请求可见（`isVisibleRequested`）的叶任务决定策略，分屏/PiP 按同一焦点规则；不等待转场提交可见性或首帧绘制。工作资料使用对应资料用户的覆盖，当前主用户关闭功能时整体暂停。手动应用覆盖直接决定目标，不参与任何事件场景；只有自动应用进入原厂 305 场景树。
 
-首版不复刻通话、录像规格、低温充电、IEC、复合场景监听；省电模式不另外改表。原有 launch/fling 的省电过滤继续保留。新增全局均衡/性能选择，但没有全局固定表、频率调节或关闭温控接口。
+已接入的事件输入为通话摘机、原厂相机 4K60/4K30/8K 录像、低温充电、反向供电和抖音前台。低温/反充直接读取内核状态并由 power_supply uevent 触发重算；通话读取系统聚合通话状态；相机兼容 APK 接收原厂定向到 `com.miui.powerkeeper` 的广播。屏灭、锁屏或无有效前台时维持 0 基线，但通话、低温和反充仍可按场景树产生非零结果。未接入 IEC、SpecialCScenario、播放高帧和 SPTM_2 的 Lineage 状态源。
+
+305 的 63 条 `setting.xml` 规则按所有命中项取最大场景 ID，再执行 SwitchProcessor 映射。未分类应用保持 0，不因性能模式进入 50。原有 launch/fling 的省电过滤继续保留；没有频率调节或关闭温控接口。
 
 服务失效没有租约兜底：system_server/thermal worker 不运行时，daemon 可能保留旧表。thermal 使用独立 worker，不再排在同步 boost HAL 调用后面；配置写盘仍与温控决策共用配置锁。不能宣称任意故障后限时恢复。
 
@@ -115,12 +122,9 @@ running/serial 不是 inotify 监听就绪或加载 ACK。监听晚于重试窗�
 
 API 继续只有一个 dash_thermal 服务、一份共享 AIDL、一份配置文件和后端唯一映射。
 当前 Bundle 字段仍靠字符串约定；风险在于未来静默改字段或在 UI 复制策略。
-本轮用版本 2 和追加方法保持兼容，不为了一个布尔状态另建服务或重写整套 DTO。
+本轮用版本 3 和末尾追加方法保持旧 transaction 编号。
 
-2026-09-16 验证：XML/静态接口检查；原有 host 检查在用户要求停止编译之前通过。
-新持久化回归用例已写入 Android 测试源码，尚未执行。模块构建在 Soong 图生成阶段
-按用户要求终止；未完成编译、未安装、未上机验证。统一构建上机时检查两入口同步、
-模式重启持久化、手动覆盖优先和自动基础/per 切换。
+2026-09-16：事件场景源码已完成静态核对；Java 规则表与 305 `setting.xml` 的 63 条规则逐项一致。新增 host 回归源码尚未执行。按用户要求未编译、未安装、未上机验证。统一构建上机时检查两入口同步、模式重启持久化、手动覆盖优先、自动基础/per 切换，以及各事件进入和退出后的恢复。
 
 ## 调试
 

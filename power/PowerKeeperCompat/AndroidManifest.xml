@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 GitHub @YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.miui.powerkeeper">
+
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
+    <application
+        android:allowBackup="false"
+        android:directBootAware="true"
+        android:hasCode="true"
+        android:label="Dash PowerKeeper compatibility">
+        <receiver
+            android:name="me.sandai.dashpower.compat.CameraThermalReceiver"
+            android:directBootAware="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="record_start" />
+                <action android:name="record_end" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -24,8 +24,10 @@ import android.os.Process;
 import android.os.ResultReceiver;
 import android.os.ShellCallback;
 import android.os.ShellCommand;
+import android.os.UEventObserver;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.telephony.TelephonyManager;
 import android.util.Slog;
 import android.view.Display;
 
@@ -50,6 +52,11 @@ final class ThermalBackend extends IDashThermalService.Stub {
     static final String SERVICE = "dash_thermal";
     private static final String TAG = "DashThermal";
     private static final File NODE = new File("/sys/class/thermal/thermal_message/sconfig");
+    private static final File LOW_TEMP_CHARGE =
+            new File("/sys/class/power_supply/battery/extreme_cold_chg");
+    private static final File REVERSE_CHARGE =
+            new File("/sys/class/power_supply/usb/otg_enable");
+    private static final String POWER_KEEPER_PACKAGE = "com.miui.powerkeeper";
     private final Context context;
     private final Handler worker;
     private final UserManager users;
@@ -62,6 +69,9 @@ final class ThermalBackend extends IDashThermalService.Stub {
     private final AtomicBoolean lifecycleCheckQueued = new AtomicBoolean();
     private final AtomicLong generation = new AtomicLong();
     private final Runnable refresh = this::recompute;
+    private final UEventObserver powerSupplyObserver = new UEventObserver() {
+        @Override public void onUEvent(UEventObserver.UEvent event) { changed(); }
+    };
     private volatile int currentUser;
     private volatile boolean ready;
     private boolean forceNextRequest;
@@ -71,6 +81,12 @@ final class ThermalBackend extends IDashThermalService.Stub {
     private String foregroundPackage = "";
     private String reason = "starting";
     private String error = "";
+    private String eventError = "not sampled";
+    private int scenario;
+    private int cameraElement = ThermalScenarioPolicy.OFF;
+    private boolean offHook;
+    private boolean lowTempCharge;
+    private boolean reverseCharge;
 
     private static final class Config {
         boolean enabled = true;
@@ -127,6 +143,7 @@ final class ThermalBackend extends IDashThermalService.Stub {
                 states.addAction(Intent.ACTION_USER_UNLOCKED);
                 states.addAction(Intent.ACTION_USER_STOPPED);
                 states.addAction(Intent.ACTION_USER_REMOVED);
+                states.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
                 context.registerReceiverAsUser(new BroadcastReceiver() {
                     @Override public void onReceive(Context c, Intent i) {
                         if (Intent.ACTION_USER_REMOVED.equals(i.getAction())) {
@@ -150,6 +167,7 @@ final class ThermalBackend extends IDashThermalService.Stub {
                         }
                     }
                 }, UserHandle.ALL, packages, null, worker);
+                powerSupplyObserver.startObserving("SUBSYSTEM=power_supply");
                 context.getSystemService(KeyguardManager.class)
                         .addKeyguardLockedStateListener(worker::post, locked -> changed());
                 synchronized (this) {
@@ -183,7 +201,8 @@ final class ThermalBackend extends IDashThermalService.Stub {
             int appUser = -1;
             String pkg = "";
             String why = "no-focused-app";
-            if (!context.getSystemService(PowerManager.class).isInteractive()) {
+            boolean interactive = context.getSystemService(PowerManager.class).isInteractive();
+            if (!interactive) {
                 why = "screen-off";
             } else if (context.getSystemService(KeyguardManager.class).isKeyguardLocked()) {
                 why = "locked";
@@ -202,9 +221,14 @@ final class ThermalBackend extends IDashThermalService.Stub {
                     why = "automatic";
                 }
             }
+            StringBuilder eventFailures = new StringBuilder();
+            boolean sampledOffHook = sampleOffHook(eventFailures);
+            boolean sampledLowTemp = readEventFlag(LOW_TEMP_CHARGE, eventFailures);
+            boolean sampledReverse = readEventFlag(REVERSE_CHARGE, eventFailures);
             synchronized (this) {
                 if (observed != generation.get()) return;
                 int target = 0;
+                int selectedScenario = 0;
                 if (!config(user).enabled) {
                     why = "disabled";
                 } else if (appUser >= 0) {
@@ -213,14 +237,37 @@ final class ThermalBackend extends IDashThermalService.Stub {
                         why = "profile-disabled";
                     } else {
                         Integer override = appConfig.overrides.get(pkg);
-                        target = override != null ? override
-                                : defaultProfile(pkg, config(user).performanceMode);
-                        if (override != null) why = "override";
+                        if (override != null) {
+                            target = override;
+                            selectedScenario = -1;
+                            why = "override";
+                        } else {
+                            String group = groups.getOrDefault(pkg, "unclassified");
+                            boolean performance = !"unclassified".equals(group)
+                                    && config(modeUser(appUser)).performanceMode;
+                            ThermalScenarioPolicy.Result selected = ThermalScenarioPolicy.select(
+                                    group, pkg, interactive, sampledOffHook, cameraElement,
+                                    performance, sampledLowTemp, sampledReverse);
+                            selectedScenario = selected.scenario;
+                            target = selected.profile;
+                        }
                     }
+                } else {
+                    // Preserve normal when idle while allowing global stock event scenarios.
+                    ThermalScenarioPolicy.Result selected = ThermalScenarioPolicy.select(
+                            "unclassified", "", interactive, sampledOffHook, cameraElement,
+                            false, sampledLowTemp, sampledReverse);
+                    selectedScenario = selected.scenario;
+                    target = selected.profile;
                 }
                 foregroundPackage = pkg;
                 foregroundUser = appUser;
                 reason = why;
+                scenario = selectedScenario;
+                offHook = sampledOffHook;
+                lowTempCharge = sampledLowTemp;
+                reverseCharge = sampledReverse;
+                eventError = eventFailures.toString();
                 boolean force = forceNextRequest;
                 forceNextRequest = false;
                 writeProfile(target, force);
@@ -244,6 +291,34 @@ final class ThermalBackend extends IDashThermalService.Stub {
 
     static boolean isForegroundTask(ActivityManager.RunningTaskInfo task) {
         return task.isFocused && task.isVisibleRequested && task.topActivity != null;
+    }
+
+    private boolean sampleOffHook(StringBuilder failures) {
+        try {
+            TelephonyManager telephony = context.getSystemService(TelephonyManager.class);
+            if (telephony == null) throw new IllegalStateException("telephony service absent");
+            return telephony.getCallState() == TelephonyManager.CALL_STATE_OFFHOOK;
+        } catch (RuntimeException e) {
+            appendEventFailure(failures, "call", e);
+            return false;
+        }
+    }
+
+    private static boolean readEventFlag(File node, StringBuilder failures) {
+        try {
+            String value = Files.readString(node.toPath()).trim();
+            if ("0".equals(value)) return false;
+            if ("1".equals(value)) return true;
+            throw new IllegalStateException("unexpected value " + value);
+        } catch (Exception e) {
+            appendEventFailure(failures, node.getName(), e);
+            return false;
+        }
+    }
+
+    private static void appendEventFailure(StringBuilder failures, String source, Exception e) {
+        if (failures.length() != 0) failures.append("; ");
+        failures.append(source).append(": ").append(e);
     }
 
     private void startLifecycleObserver() {
@@ -335,13 +410,15 @@ final class ThermalBackend extends IDashThermalService.Stub {
             afterSample = sampleLifecycle();
         }
         if (requests.submitted(epoch, target, afterSample)) {
-            Slog.i(TAG, "request=" + target + " reason=" + reason + " user=" + foregroundUser
-                    + " package=" + foregroundPackage);
+            Slog.i(TAG, "request=" + target + " scenario=" + scenario + " reason=" + reason
+                    + " user=" + foregroundUser + " package=" + foregroundPackage);
         }
     }
 
     private int defaultProfile(String pkg, boolean performance) {
-        return ThermalProfiles.forGroup(groups.getOrDefault(pkg, "unclassified"), performance);
+        String group = groups.getOrDefault(pkg, "unclassified");
+        return ThermalScenarioPolicy.select(group, pkg, true, false, ThermalScenarioPolicy.OFF,
+                performance && !"unclassified".equals(group), false, false).profile;
     }
 
     private Config config(int user) throws Exception {
@@ -416,6 +493,21 @@ final class ThermalBackend extends IDashThermalService.Stub {
         if (user < 0) throw new IllegalArgumentException("Concrete userId required");
     }
 
+    private void enforcePowerKeeperCompat() {
+        int uid = Binder.getCallingUid();
+        PackageManager packages = context.getPackageManager();
+        if (packages.checkSignatures(Process.SYSTEM_UID, uid) != PackageManager.SIGNATURE_MATCH) {
+            throw new SecurityException("Platform signature required");
+        }
+        String[] names = packages.getPackagesForUid(uid);
+        if (names != null) {
+            for (String name : names) {
+                if (POWER_KEEPER_PACKAGE.equals(name)) return;
+            }
+        }
+        throw new SecurityException("PowerKeeper compatibility package required");
+    }
+
     private void installed(int user, String pkg) throws Exception {
         if (users.getUserInfo(user) == null) throw new IllegalArgumentException("Unknown user");
         if (pkg == null || pkg.isEmpty()) throw new IllegalArgumentException("Package required");
@@ -450,6 +542,12 @@ final class ThermalBackend extends IDashThermalService.Stub {
             out.putBoolean("appliedConfirmed", false);
             out.putString("reason", reason);
             out.putString("error", error);
+            out.putString("eventError", eventError);
+            out.putInt("scenarioId", scenario);
+            out.putInt("cameraElement", cameraElement);
+            out.putBoolean("offHook", offHook);
+            out.putBoolean("lowTempCharge", lowTempCharge);
+            out.putBoolean("reverseCharge", reverseCharge);
             out.putIntArray("selectableProfiles", new int[] {-1, 0, 50, 19, 18, 20, 25});
             Bundle overrides = new Bundle();
             config.overrides.forEach(overrides::putInt);
@@ -507,6 +605,13 @@ final class ThermalBackend extends IDashThermalService.Stub {
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
+    }
+
+    @Override public synchronized void notifyCameraRecordState(
+            boolean recording, int quality, int fps) {
+        enforcePowerKeeperCompat();
+        cameraElement = ThermalScenarioPolicy.cameraRecordElement(recording, quality, fps);
+        changed();
     }
 
     @Override public synchronized void setAppProfile(int user, String pkg, int id) {

@@ -4,8 +4,8 @@ Copyright (C) 2026 GitHub @YorokobiMaster. Apache-2.0.
 
 This optional system-server extension uses the **retained** MTK power service
 for finite launch/fling requests and the retained thermal daemon for per-app
-scene selection, with a shared balanced/performance mode for automatic app policies. It keeps vendor binaries and the standard Power HAL path.
-It does not reproduce the full HyperOS/PowerKeeper scenario state machine.
+scene selection, with a shared balanced/performance mode and selected stock event inputs
+for automatic app policies. It keeps vendor binaries and the standard Power HAL path.
 
 The policies have separate `DashPower` and `DashThermal` workers: synchronous
 vendor boost IPC must not block thermal recomputation. Binder configuration
@@ -107,7 +107,7 @@ hooks in system; dash-power installs in system_ext; the framework resource and
 overlay packaging must be included from the same build. Build validation, installed
 artifact validation and thermal/performance benefit are separate acceptance gates.
 
-Host tests cover boost lifecycle/generation, the production NIO configuration
+Host tests cover boost lifecycle/generation, the fixed dash 305 scenario tree, the production NIO configuration
 store (including injected commit failures), request revision/retry bookkeeping,
 and reportable native load/wait failures. `DashThermalBackendTests` uses real
 RunningTaskInfo and backend setters with test-owned storage; it does not start
@@ -155,13 +155,19 @@ Successful Android native loading, observer/retry execution, actual table loadin
 Enforcing-device behavior and physical power-loss durability remain unverified.
 The finite retry sequence is best-effort delivery, not a readiness or loading ACK.
 
-### Performance mode — 2026-09-16
+### Performance mode and event scenarios — 2026-09-16
 
 Battery now has an injected native Performance Mode switch; the same APK exposes a
-standard Quick Settings tile with a tintable 24dp gauge icon. Both use API version 2
+standard Quick Settings tile with a tintable 24dp gauge icon. Both use API version 3
 of the existing dash_thermal service. Automatic profiles switch with the mode;
 manual overrides win, unknown apps always use normal, and the default is balanced.
 The mode is persisted alongside existing per-user configuration. See THERMAL_API.md.
 
-The module build was stopped during Soong graph generation at the user's request.
-No completed build or device verification is claimed for this change.
+Automatic policies now arbitrate the retained dash 305 scenario tree. Calls, stock-camera
+recording modes, extreme-cold charging, active reverse charging and the Douyin foreground
+state have Lineage-side inputs. Manual app overrides bypass event arbitration. IEC,
+SpecialCScenario, playback high-FPS and SPTM_2 remain without a Lineage source.
+
+The Java rule table was checked against all 63 rules in the retained 305 setting.xml. The
+module and new host test were not compiled at the user's request, and no device verification
+is claimed for this change.
