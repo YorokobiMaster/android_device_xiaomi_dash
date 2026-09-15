@@ -14,6 +14,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
+import android.hardware.camera2.CameraManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
@@ -41,8 +42,10 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntFunction;
@@ -69,14 +72,31 @@ final class ThermalBackend extends IDashThermalService.Stub {
     private final AtomicBoolean lifecycleCheckQueued = new AtomicBoolean();
     private final AtomicLong generation = new AtomicLong();
     private final Runnable refresh = this::recompute;
+    private final Set<String> unavailableCameras = new HashSet<>();
     private final UEventObserver powerSupplyObserver = new UEventObserver() {
         @Override public void onUEvent(UEventObserver.UEvent event) { changed(); }
     };
+    private final CameraManager.AvailabilityCallback cameraAvailability =
+            new CameraManager.AvailabilityCallback() {
+                @Override public void onCameraAvailable(String cameraId) {
+                    synchronized (ThermalBackend.this) {
+                        unavailableCameras.remove(cameraId);
+                        if (unavailableCameras.isEmpty()) clearCameraRecordStateLocked();
+                    }
+                }
+
+                @Override public void onCameraUnavailable(String cameraId) {
+                    synchronized (ThermalBackend.this) {
+                        unavailableCameras.add(cameraId);
+                    }
+                }
+            };
     private volatile int currentUser;
     private volatile boolean ready;
     private boolean forceNextRequest;
     private String lifecycleError = "not sampled";
     private String watcherError = "not started";
+    private String cameraWatcherError = "not started";
     private int foregroundUser = -1;
     private String foregroundPackage = "";
     private String reason = "starting";
@@ -84,6 +104,7 @@ final class ThermalBackend extends IDashThermalService.Stub {
     private String eventError = "not sampled";
     private int scenario;
     private int cameraElement = ThermalScenarioPolicy.OFF;
+    private int cameraUser = -1;
     private boolean offHook;
     private boolean lowTempCharge;
     private boolean reverseCharge;
@@ -146,11 +167,15 @@ final class ThermalBackend extends IDashThermalService.Stub {
                 states.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
                 context.registerReceiverAsUser(new BroadcastReceiver() {
                     @Override public void onReceive(Context c, Intent i) {
-                        if (Intent.ACTION_USER_REMOVED.equals(i.getAction())) {
+                        if (Intent.ACTION_USER_REMOVED.equals(i.getAction())
+                                || Intent.ACTION_USER_STOPPED.equals(i.getAction())) {
                             synchronized (ThermalBackend.this) {
-                                int removedUser = i.getIntExtra(Intent.EXTRA_USER_HANDLE, -1);
-                                configs.remove(removedUser);
-                                persistenceErrors.remove(removedUser);
+                                int affectedUser = i.getIntExtra(Intent.EXTRA_USER_HANDLE, -1);
+                                if (Intent.ACTION_USER_REMOVED.equals(i.getAction())) {
+                                    configs.remove(affectedUser);
+                                    persistenceErrors.remove(affectedUser);
+                                }
+                                if (cameraUser == affectedUser) clearCameraRecordStateLocked();
                             }
                         }
                         changed();
@@ -168,6 +193,17 @@ final class ThermalBackend extends IDashThermalService.Stub {
                     }
                 }, UserHandle.ALL, packages, null, worker);
                 powerSupplyObserver.startObserving("SUBSYSTEM=power_supply");
+                CameraManager cameras = context.getSystemService(CameraManager.class);
+                if (cameras == null) {
+                    synchronized (this) { cameraWatcherError = "camera service absent"; }
+                } else {
+                    try {
+                        cameras.registerAvailabilityCallback(cameraAvailability, worker);
+                        synchronized (this) { cameraWatcherError = ""; }
+                    } catch (RuntimeException e) {
+                        synchronized (this) { cameraWatcherError = e.toString(); }
+                    }
+                }
                 context.getSystemService(KeyguardManager.class)
                         .addKeyguardLockedStateListener(worker::post, locked -> changed());
                 synchronized (this) {
@@ -182,8 +218,12 @@ final class ThermalBackend extends IDashThermalService.Stub {
         });
     }
 
-    void switching(int userId) {
+    synchronized void switching(int userId) {
         currentUser = userId;
+        if (cameraUser >= 0 && cameraUser != userId) {
+            UserInfo parent = users.getProfileParent(cameraUser);
+            if (parent == null || parent.id != userId) clearCameraRecordStateLocked();
+        }
         changed();
     }
 
@@ -245,8 +285,10 @@ final class ThermalBackend extends IDashThermalService.Stub {
                             String group = groups.getOrDefault(pkg, "unclassified");
                             boolean performance = !"unclassified".equals(group)
                                     && config(modeUser(appUser)).performanceMode;
+                            int camera = cameraUser == appUser
+                                    ? cameraElement : ThermalScenarioPolicy.OFF;
                             ThermalScenarioPolicy.Result selected = ThermalScenarioPolicy.select(
-                                    group, pkg, interactive, sampledOffHook, cameraElement,
+                                    group, pkg, interactive, sampledOffHook, camera,
                                     performance, sampledLowTemp, sampledReverse);
                             selectedScenario = selected.scenario;
                             target = selected.profile;
@@ -255,7 +297,8 @@ final class ThermalBackend extends IDashThermalService.Stub {
                 } else {
                     // Preserve normal when idle while allowing global stock event scenarios.
                     ThermalScenarioPolicy.Result selected = ThermalScenarioPolicy.select(
-                            "unclassified", "", interactive, sampledOffHook, cameraElement,
+                            "unclassified", "", interactive, sampledOffHook,
+                            ThermalScenarioPolicy.OFF,
                             false, sampledLowTemp, sampledReverse);
                     selectedScenario = selected.scenario;
                     target = selected.profile;
@@ -267,6 +310,9 @@ final class ThermalBackend extends IDashThermalService.Stub {
                 offHook = sampledOffHook;
                 lowTempCharge = sampledLowTemp;
                 reverseCharge = sampledReverse;
+                if (!cameraWatcherError.isEmpty()) {
+                    appendEventFailure(eventFailures, "camera", cameraWatcherError);
+                }
                 eventError = eventFailures.toString();
                 boolean force = forceNextRequest;
                 forceNextRequest = false;
@@ -317,8 +363,20 @@ final class ThermalBackend extends IDashThermalService.Stub {
     }
 
     private static void appendEventFailure(StringBuilder failures, String source, Exception e) {
+        appendEventFailure(failures, source, e.toString());
+    }
+
+    private static void appendEventFailure(StringBuilder failures, String source, String detail) {
         if (failures.length() != 0) failures.append("; ");
-        failures.append(source).append(": ").append(e);
+        failures.append(source).append(": ").append(detail);
+    }
+
+    // Called with this held. Camera availability is the authoritative crash/close fallback.
+    private void clearCameraRecordStateLocked() {
+        if (cameraElement == ThermalScenarioPolicy.OFF && cameraUser == -1) return;
+        cameraElement = ThermalScenarioPolicy.OFF;
+        cameraUser = -1;
+        changed();
     }
 
     private void startLifecycleObserver() {
@@ -532,6 +590,7 @@ final class ThermalBackend extends IDashThermalService.Stub {
             out.putLong("requestEpoch", requests.epoch());
             out.putString("lifecycleError", lifecycleError);
             out.putString("watcherError", watcherError);
+            out.putString("cameraWatcherError", cameraWatcherError);
             out.putString("persistenceError", persistenceErrors.getOrDefault(user, ""));
             out.putBoolean("enabled", config.enabled);
             out.putBoolean("performanceMode", config(modeUser(user)).performanceMode);
@@ -545,6 +604,7 @@ final class ThermalBackend extends IDashThermalService.Stub {
             out.putString("eventError", eventError);
             out.putInt("scenarioId", scenario);
             out.putInt("cameraElement", cameraElement);
+            out.putInt("cameraUserId", cameraUser);
             out.putBoolean("offHook", offHook);
             out.putBoolean("lowTempCharge", lowTempCharge);
             out.putBoolean("reverseCharge", reverseCharge);
@@ -611,6 +671,8 @@ final class ThermalBackend extends IDashThermalService.Stub {
             boolean recording, int quality, int fps) {
         enforcePowerKeeperCompat();
         cameraElement = ThermalScenarioPolicy.cameraRecordElement(recording, quality, fps);
+        cameraUser = cameraElement == ThermalScenarioPolicy.OFF
+                ? -1 : UserHandle.getUserId(Binder.getCallingUid());
         changed();
     }
 

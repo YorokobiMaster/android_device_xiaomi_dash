@@ -8,8 +8,9 @@
 - 已实现原厂 305 的 63 条 `setting.xml` 规则、max-id 仲裁和 SwitchProcessor 映射；
   源码表已逐项与原 XML 比对一致。
 - 已接入通话摘机、原厂相机 4K60/4K30/8K、低温充电、实际反向供电和抖音前台。
-- 相机原广播定向到 `com.miui.powerkeeper`，因此增加同包名的平台签名兼容 APK，校验广播
-  UID 属于原厂相机，再通过 API v3 通知唯一后端。
+- 相机原广播定向到 `com.miui.powerkeeper`，因此增加同包名的平台签名兼容 APK；接收器要求
+  原厂相机已获授的 signature 权限，再通过 API v3 通知唯一后端。普通 sendBroadcast 不共享
+  UID/包名，不能使用 `getSentFromUid/getSentFromPackage` 鉴权。
 - 用户已决定：特殊事件只在应用设置为自动时参与；任何手动应用档位都直接胜出。
 - IEC、SpecialCScenario、播放高帧和 SPTM_2 仍无可靠 Lineage 状态源，当前固定为关闭。
 - 已写 host 回归源码并补 SELinux 源码；遵照用户要求，没有编译、安装或刷机。

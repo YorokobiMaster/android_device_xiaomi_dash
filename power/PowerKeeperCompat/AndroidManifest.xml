@@ -14,7 +14,8 @@
         <receiver
             android:name="me.sandai.dashpower.compat.CameraThermalReceiver"
             android:directBootAware="true"
-            android:exported="true">
+            android:exported="true"
+            android:permission="com.android.camera.permission.DebugProvider">
             <intent-filter>
                 <action android:name="record_start" />
                 <action android:name="record_end" />

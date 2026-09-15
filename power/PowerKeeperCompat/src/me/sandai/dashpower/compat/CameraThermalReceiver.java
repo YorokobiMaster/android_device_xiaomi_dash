@@ -12,21 +12,13 @@ import android.util.Slog;
 
 import me.sandai.dashpower.IDashThermalService;
 
-/** Receives the stock camera's explicit PowerKeeper recording broadcasts. */
+/** Receives stock camera broadcasts; the manifest requires its signature permission. */
 public final class CameraThermalReceiver extends BroadcastReceiver {
     private static final String TAG = "DashPowerKeeperCompat";
-    private static final String CAMERA_PACKAGE = "com.android.camera";
     private static final String SERVICE = "dash_thermal";
 
     @Override public void onReceive(Context context, Intent intent) {
-        int senderUid = getSentFromUid();
-        String senderPackage = getSentFromPackage();
-        if (intent == null || !CAMERA_PACKAGE.equals(senderPackage)
-                || !sentByCamera(context, senderUid)) {
-            Slog.w(TAG, "Ignoring camera thermal broadcast from " + senderPackage
-                    + "/" + senderUid);
-            return;
-        }
+        if (intent == null) return;
         String action = intent.getAction();
         boolean recording;
         if ("record_start".equals(action)) recording = true;
@@ -51,12 +43,4 @@ public final class CameraThermalReceiver extends BroadcastReceiver {
         }
     }
 
-    private static boolean sentByCamera(Context context, int uid) {
-        String[] packages = context.getPackageManager().getPackagesForUid(uid);
-        if (packages == null) return false;
-        for (String pkg : packages) {
-            if (CAMERA_PACKAGE.equals(pkg)) return true;
-        }
-        return false;
-    }
 }

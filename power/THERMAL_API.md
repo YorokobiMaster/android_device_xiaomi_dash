@@ -41,6 +41,7 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 | requestEpoch | long，本后端的请求代际，生命周期变化或手动 resync 时递增，不是 daemon PID |
 | lifecycleError | String，属性缺失/不可访问、非 running 或 native 读取错误；空串仅表示该次生命周期观测正常 |
 | watcherError | String，原生属性观察线程的错误；失败后停止自动观察，直接采样或手动 resync 不清除此错误 |
+| cameraWatcherError | String，CameraManager 关闭/崩溃恢复监听的注册错误 |
 | persistenceError | String，所查询用户最近一次保存错误，后续成功保存才清除；不因节点写入成功而清除 |
 | appliedConfirmed | boolean，当前恒 false：没有承诺 daemon 的加载 ACK |
 | reason | String：starting、automatic、override、disabled、profile-disabled、screen-off、locked、user-locked、no-focused-app、error |
@@ -48,6 +49,7 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 | eventError | String，通话或电源事件源最近一次采样错误；失败的输入按关闭处理 |
 | scenarioId | int，原厂场景树仲裁结果；手动覆盖时为 -1 |
 | cameraElement | int，录像输入元素：1=4K60、2=4K30/8K、99=关闭/其他规格 |
+| cameraUserId | int，当前录像输入所属用户；无输入时为 -1 |
 | offHook / lowTempCharge / reverseCharge | boolean，最近一次参与仲裁的事件输入 |
 | selectableProfiles | int[]，`[-1,0,50,19,18,20,25]` |
 | overrides | Bundle，包名键 → int 档位，仅所查询用户 |
@@ -95,7 +97,7 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 
 内置屏幕上取得焦点、请求可见（`isVisibleRequested`）的叶任务决定策略，分屏/PiP 按同一焦点规则；不等待转场提交可见性或首帧绘制。工作资料使用对应资料用户的覆盖，当前主用户关闭功能时整体暂停。手动应用覆盖直接决定目标，不参与任何事件场景；只有自动应用进入原厂 305 场景树。
 
-已接入的事件输入为通话摘机、原厂相机 4K60/4K30/8K 录像、低温充电、反向供电和抖音前台。低温/反充直接读取内核状态并由 power_supply uevent 触发重算；通话读取系统聚合通话状态；相机兼容 APK 接收原厂定向到 `com.miui.powerkeeper` 的广播。屏灭、锁屏或无有效前台时维持 0 基线，但通话、低温和反充仍可按场景树产生非零结果。未接入 IEC、SpecialCScenario、播放高帧和 SPTM_2 的 Lineage 状态源。
+已接入的事件输入为通话摘机、原厂相机 4K60/4K30/8K 录像、低温充电、反向供电和抖音前台。低温/反充直接读取内核状态并由 power_supply uevent 触发重算；通话读取系统聚合通话状态；相机兼容 APK 接收原厂定向到 `com.miui.powerkeeper` 的广播，接收器由相机自有 signature 权限保护。录像状态按用户隔离，并在 CameraManager 确认全部相机释放、用户停止或切换离开该用户时清除。屏灭、锁屏或无有效前台时维持 0 基线，但通话、低温和反充仍可按场景树产生非零结果。未接入 IEC、SpecialCScenario、播放高帧和 SPTM_2 的 Lineage 状态源。
 
 305 的 63 条 `setting.xml` 规则按所有命中项取最大场景 ID，再执行 SwitchProcessor 映射。未分类应用保持 0，不因性能模式进入 50。原有 launch/fling 的省电过滤继续保留；没有频率调节或关闭温控接口。
 
