@@ -10,6 +10,7 @@
 
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
     <uses-permission android:name="android.permission.OBSERVE_SENSOR_PRIVACY" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -42,5 +43,14 @@
             android:directBootAware="true"
             android:exported="false"
             android:process=":aov" />
+
+        <service
+            android:name=".aov.DashAttentionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ATTENTION_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.attention.AttentionService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

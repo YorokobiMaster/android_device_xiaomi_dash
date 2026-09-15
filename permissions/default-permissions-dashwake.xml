@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 GitHub @YorokobiMaster
+
+     SPDX-License-Identifier: Apache-2.0
+-->
+<!-- DashWake is the attention service backend; adaptive sleep needs its camera
+     grant in place out of the box or the Settings switch stays disabled. -->
+<exceptions>
+    <exception package="me.sandai.dashwake">
+        <permission name="android.permission.CAMERA" fixed="true" />
+    </exception>
+</exceptions>

@@ -18,6 +18,8 @@ import android.util.Log;
 final class MtkAovClient implements AutoCloseable {
     interface Listener {
         void onPresenceDetected(MtkAovClient client);
+        // Fired once per session when the first frame arrives without a gaze hit.
+        default void onNoPresenceDetected(MtkAovClient client) {}
         void onServiceDied(MtkAovClient client);
     }
 
@@ -54,6 +56,7 @@ final class MtkAovClient implements AutoCloseable {
     private IBinder.DeathRecipient mDeathRecipient;
     private boolean mConnected;
     private boolean mStarted;
+    private boolean mNoPresenceReported;
 
     MtkAovClient(Handler worker, Listener listener) {
         mWorker = worker;
@@ -170,10 +173,16 @@ final class MtkAovClient implements AutoCloseable {
                 continue;
             }
             byte[] output = result.data.getByteVector();
-            if (output != null && output.length > 24 && Byte.toUnsignedInt(output[24]) == 1) {
-                mWorker.post(this::handlePresenceDetected);
-                return;
+            if (output == null || output.length <= 24) {
+                continue;
             }
+            if (Byte.toUnsignedInt(output[24]) == 1) {
+                mWorker.post(this::handlePresenceDetected);
+            } else if (!mNoPresenceReported) {
+                mNoPresenceReported = true;
+                mWorker.post(this::handleNoPresenceDetected);
+            }
+            return;
         }
     }
 
@@ -183,6 +192,13 @@ final class MtkAovClient implements AutoCloseable {
         }
         Log.i(TAG, "AOV gaze detected");
         mListener.onPresenceDetected(this);
+    }
+
+    private void handleNoPresenceDetected() {
+        if (!mStarted) {
+            return;
+        }
+        mListener.onNoPresenceDetected(this);
     }
 
     private void handleServiceDeath(IBinder service) {

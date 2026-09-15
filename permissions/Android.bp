@@ -18,6 +18,14 @@ prebuilt_etc {
 }
 
 prebuilt_etc {
+    name: "default-permissions-dashwake",
+    src: "default-permissions-dashwake.xml",
+    filename_from_src: true,
+    sub_dir: "default-permissions",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
     name: "dash-unavailable-features",
     src: "dash-unavailable-features.xml",
     filename_from_src: true,

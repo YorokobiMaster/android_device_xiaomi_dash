@@ -103,6 +103,7 @@ PRODUCT_PACKAGES += \
     dash-livedisplay \
     dash-unavailable-features \
     dash-vibrator-adapter \
+    default-permissions-dashwake \
     init.dash-system_ext.rc \
     libaudiopolicymanagercustom \
     libhidltransport \
