@@ -1,0 +1,7 @@
+# Copyright (C) 2026 GitHub @YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+# Type retained by stock vendor policy, as with other dash vendor service clients.
+type mtk_hal_power_service, service_manager_type, hal_service_type;
+allow system_server mtk_hal_power_service:service_manager find;
+# Stock loaded policy already grants system_server binder call/transfer to mtk_hal_power.
+get_prop(system_server, dash_power_prop)

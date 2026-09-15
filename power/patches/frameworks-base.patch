@@ -1,0 +1,216 @@
+diff --git a/services/core/java/com/android/server/power/PowerManagerService.java b/services/core/java/com/android/server/power/PowerManagerService.java
+index ff600c7d0a2b..106c4555e8c4 100644
+--- a/services/core/java/com/android/server/power/PowerManagerService.java
++++ b/services/core/java/com/android/server/power/PowerManagerService.java
+@@ -1417,11 +1417,36 @@ public final class PowerManagerService extends SystemService
+         publishBinderService(Context.POWER_SERVICE, mBinderService, /* allowIsolated= */ false,
+                 DUMP_FLAG_PRIORITY_CRITICAL);
+         publishLocalService(PowerManagerInternal.class, mLocalService);
++        publishLocalService(DevicePowerManagerInternal.class, getDevicePowerServiceInstance());
+ 
+         Watchdog.getInstance().addMonitor(this);
+         Watchdog.getInstance().addThread(mHandler);
+     }
+ 
++    @VisibleForTesting
++    DevicePowerManagerInternal getDevicePowerServiceInstance() {
++        return new DevicePowerManagerInternal() {
++            @Override
++            public void setListener(Listener listener) {
++                synchronized (mLock) {
++                    mDevicePowerListener = listener;
++                    notifyDevicePowerStateLocked();
++                }
++            }
++
++            @Override
++            public void onFling(int displayId, int durationMs) {
++                synchronized (mLock) {
++                    notifyDevicePowerStateLocked();
++                    if (mDevicePowerListener != null && mHalInteractiveModeEnabled
++                            && !isDeviceLaunchBoostDisabled()) {
++                        mDevicePowerListener.onFling(displayId, durationMs);
++                    }
++                }
++            }
++        };
++    }
++
+     @Override
+     public void onBootPhase(int phase) {
+         if (phase == PHASE_SYSTEM_SERVICES_READY) {
+@@ -4427,6 +4452,7 @@ public final class PowerManagerService extends SystemService
+                 Slog.d(TAG, "Setting HAL interactive mode to " + enable);
+             }
+             mHalInteractiveModeEnabled = enable;
++            notifyDevicePowerStateLocked();
+             Trace.traceBegin(Trace.TRACE_TAG_POWER, "setHalInteractive(" + enable + ")");
+             try {
+                 mNativeWrapper.nativeSetPowerMode(Mode.INTERACTIVE, enable);
+@@ -5008,12 +5034,37 @@ public final class PowerManagerService extends SystemService
+     }
+ 
+     private boolean setPowerModeInternal(int mode, boolean enabled) {
+-        // Maybe filter the event.
+-        if (mode == Mode.LAUNCH && enabled && mBatterySaverStateMachine != null
+-                && mBatterySaverStateMachine.getBatterySaverController().isLaunchBoostDisabled()) {
+-            return false;
++        synchronized (mLock) {
++            // Keep the accepted lifecycle in the same order as the original HAL calls.
++            if (mode == Mode.LAUNCH && enabled && isDeviceLaunchBoostDisabled()) {
++                notifyDevicePowerStateLocked();
++                return false;
++            }
++            final boolean result = mNativeWrapper.nativeSetPowerMode(mode, enabled);
++            if (mode == Mode.LAUNCH || mode == Mode.LOW_POWER) {
++                notifyDevicePowerStateLocked();
++                if (mode == Mode.LAUNCH && mDevicePowerListener != null) {
++                    mDevicePowerListener.onLaunch(enabled);
++                }
++            }
++            return result;
++        }
++    }
++
++    @GuardedBy("mLock")
++    private DevicePowerManagerInternal.Listener mDevicePowerListener;
++
++    private boolean isDeviceLaunchBoostDisabled() {
++        return mBatterySaverStateMachine != null
++                && mBatterySaverStateMachine.getBatterySaverController().isLaunchBoostDisabled();
++    }
++
++    @GuardedBy("mLock")
++    private void notifyDevicePowerStateLocked() {
++        if (mDevicePowerListener != null) {
++            mDevicePowerListener.onStateChanged(mHalInteractiveModeEnabled,
++                    isDeviceLaunchBoostDisabled());
+         }
+-        return mNativeWrapper.nativeSetPowerMode(mode, enabled);
+     }
+ 
+     @VisibleForTesting
+diff --git a/services/core/java/com/android/server/wm/DisplayPolicy.java b/services/core/java/com/android/server/wm/DisplayPolicy.java
+index b05de11ffc61..15a9b5ae45f1 100644
+--- a/services/core/java/com/android/server/wm/DisplayPolicy.java
++++ b/services/core/java/com/android/server/wm/DisplayPolicy.java
+@@ -140,6 +140,7 @@ import com.android.internal.util.function.TriFunction;
+ import com.android.internal.view.AppearanceRegion;
+ import com.android.internal.widget.PointerLocationView;
+ import com.android.server.LocalServices;
++import com.android.server.power.DevicePowerManagerInternal;
+ import com.android.server.UiModeManagerInternal;
+ import com.android.server.UiThread;
+ import com.android.server.notification.NotificationManagerInternal;
+@@ -545,6 +546,11 @@ public class DisplayPolicy {
+                         mService.mPowerManagerInternal.setPowerBoost(
+                                 Boost.INTERACTION, duration);
+                     }
++                    final DevicePowerManagerInternal devicePower =
++                            LocalServices.getService(DevicePowerManagerInternal.class);
++                    if (devicePower != null) {
++                        devicePower.onFling(mDisplayContent.getDisplayId(), duration);
++                    }
+                 }
+ 
+                 @Override
+diff --git a/services/proguard.flags b/services/proguard.flags
+index b10aa7ef79f1..b4dc4a682167 100644
+--- a/services/proguard.flags
++++ b/services/proguard.flags
+@@ -14,6 +14,10 @@
+ }
+ 
+ # APIs referenced by dependent JAR files and modules
++# Optional device power client is loaded from a separate system-server JAR.
++-keep class com.android.server.power.DevicePowerManagerInternal { *; }
++-keep interface com.android.server.power.DevicePowerManagerInternal$Listener { *; }
++
+ # TODO(b/300514883): Pull @SystemApi keep rules from system-api.pro.
+ # TODO(b/373579455): Evaluate if <init> needs to be kept.
+ -keep interface android.annotation.SystemApi {
+diff --git a/services/tests/powerservicetests/src/com/android/server/power/PowerManagerServiceTest.java b/services/tests/powerservicetests/src/com/android/server/power/PowerManagerServiceTest.java
+index 4762f2cfbb4a..384135536469 100644
+--- a/services/tests/powerservicetests/src/com/android/server/power/PowerManagerServiceTest.java
++++ b/services/tests/powerservicetests/src/com/android/server/power/PowerManagerServiceTest.java
+@@ -3104,6 +3104,53 @@ public class PowerManagerServiceTest {
+                 mService.getBinderServiceInstance().setPowerModeChecked(Mode.INTERACTIVE, false));
+     }
+ 
++    @Test
++    public void testDevicePowerEvents_seedPolicyWithoutReplayingLaunch() {
++        createService();
++        startSystem();
++        mService.getBinderServiceInstance().setPowerMode(Mode.LAUNCH, true);
++        final DevicePowerManagerInternal.Listener listener =
++                mock(DevicePowerManagerInternal.Listener.class);
++        mService.getDevicePowerServiceInstance().setListener(listener);
++        verify(listener).onStateChanged(true, false);
++        verify(listener, never()).onLaunch(anyBoolean());
++    }
++
++    @Test
++    public void testDevicePowerEvents_preserveLaunchFilterAndEnd() {
++        createService();
++        startSystem();
++        final DevicePowerManagerInternal.Listener listener =
++                mock(DevicePowerManagerInternal.Listener.class);
++        mService.getDevicePowerServiceInstance().setListener(listener);
++        when(mBatterySaverControllerMock.isLaunchBoostDisabled()).thenReturn(true);
++        mService.getBinderServiceInstance().setPowerMode(Mode.LAUNCH, true);
++        mService.getBinderServiceInstance().setPowerMode(Mode.LAUNCH, false);
++        verify(listener, never()).onLaunch(true);
++        verify(listener).onLaunch(false);
++        verify(listener, atLeastOnce()).onStateChanged(true, true);
++    }
++
++    @Test
++    public void testDevicePowerEvents_exactAdaptivePolicyAndResolvedFling() {
++        createService();
++        startSystem();
++        final DevicePowerManagerInternal source = mService.getDevicePowerServiceInstance();
++        final DevicePowerManagerInternal.Listener listener =
++                mock(DevicePowerManagerInternal.Listener.class);
++        source.setListener(listener);
++        mService.getBinderServiceInstance().setPowerBoost(Boost.INTERACTION, 100);
++        verify(listener, never()).onFling(anyInt(), anyInt());
++        source.onFling(0, 100);
++        verify(listener).onFling(0, 100);
++        // Advertised saver false is independent of the active adaptive launch policy.
++        when(mBatterySaverControllerMock.isLaunchBoostDisabled()).thenReturn(true);
++        mService.getBinderServiceInstance().setPowerMode(Mode.LOW_POWER, false);
++        source.onFling(0, 200);
++        verify(listener, never()).onFling(0, 200);
++        verify(listener, atLeastOnce()).onStateChanged(true, true);
++    }
++
+     @Test
+     public void testMultiDisplay_wakefulnessUpdates() {
+         final int nonDefaultDisplayGroupId = Display.DEFAULT_DISPLAY_GROUP + 1;
+diff --git a/services/core/java/com/android/server/power/DevicePowerManagerInternal.java b/services/core/java/com/android/server/power/DevicePowerManagerInternal.java
+new file mode 100644
+index 000000000000..fbc8f6ab805f
+--- /dev/null
++++ b/services/core/java/com/android/server/power/DevicePowerManagerInternal.java
+@@ -0,0 +1,21 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.server.power;
++
++/** Optional device power events, internal to system_server. Not a Power HAL replacement. */
++public abstract class DevicePowerManagerInternal {
++    /** Callbacks run under the power lock: implementations must only enqueue, never perform IPC. */
++    public interface Listener {
++        void onStateChanged(boolean interactive, boolean launchBoostDisabled);
++        void onLaunch(boolean enabled);
++        void onFling(int displayId, int durationMs);
++    }
++
++    /** Seeds current policy before returning, without replaying an earlier launch or fling. */
++    public abstract void setListener(Listener listener);
++
++    /** Called only by the resolved gesture source, not generic INTERACTION producers. */
++    public abstract void onFling(int displayId, int durationMs);
++}

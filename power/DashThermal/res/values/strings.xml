@@ -36,4 +36,6 @@
 
     <string name="list_subtitle_auto_category">Auto · %1$s</string>
     <string name="detail_footer">Higher profiles relax thermal limits and may increase device temperature.</string>
+    <string name="performance_mode_title">Performance Mode</string>
+    <string name="performance_mode_summary">Relaxes selected scheduling limits. May increase battery usage.</string>
 </resources>

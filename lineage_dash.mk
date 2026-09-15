@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # 64-bit-only phone framework partition composition.
+DASH_ENABLE_POWER_HOOKS ?= true
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit_only.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, device/xiaomi/dash/device.mk)

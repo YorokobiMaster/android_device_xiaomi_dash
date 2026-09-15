@@ -11,6 +11,7 @@ android_app {
     resource_dirs: ["res"],
     static_libs: [
         "dash-thermal-client",
+        "SettingsLibTile",
         "SettingsLibCollapsingToolbarBaseActivity",
         "androidx.recyclerview_recyclerview",
     ],

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 GitHub @YorokobiMaster; SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string-array name="config_deviceSpecificSystemServices" translatable="false">
+        <item>me.sandai.dashpower.DashPowerService</item>
+    </string-array>
+</resources>

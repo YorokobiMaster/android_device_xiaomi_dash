@@ -36,4 +36,6 @@
 
     <string name="list_subtitle_auto_category">自动 · %1$s</string>
     <string name="detail_footer">更高的档位会放宽温度限制，机身可能更热</string>
+    <string name="performance_mode_title">性能模式</string>
+    <string name="performance_mode_summary">放宽部分调度限制，可能增加耗电。</string>
 </resources>

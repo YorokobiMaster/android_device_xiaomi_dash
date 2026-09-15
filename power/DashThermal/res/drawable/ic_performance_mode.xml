@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 GitHub @YorokobiMaster. SPDX-License-Identifier: Apache-2.0 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M4.93,19.07 A10,10 0,0 1,16.23,2.94 L15.17,5.20 A7.5,7.5 0,0 0,6.70,17.30 Z M17.26,3.49 A10,10 0,0 1,19.07,4.93 L17.30,6.70 A7.5,7.5 0,0 0,15.95,5.62 Z M19.74,5.67 A10,10 0,0 1,21.40,8.58 L19.05,9.44 A7.5,7.5 0,0 0,17.81,7.25 Z M21.73,9.70 A10,10 0,0 1,19.07,19.07 L17.30,17.30 A7.5,7.5 0,0 0,19.30,10.28 Z M10.59,10.59 C11.10,10.08 11.80,9.89 12.46,10.06 L17.28,6.72 Q18.05,6.20 17.55,7.04 L13.94,11.54 A2,2 0,1 1,10.59,10.59 Z" />
+</vector>

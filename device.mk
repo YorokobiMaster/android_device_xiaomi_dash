@@ -7,6 +7,8 @@ $(call inherit-product, $(DEVICE_PATH)/fod/fod.mk)
 
 $(call inherit-product, $(DEVICE_PATH)/display/brightness/brightness.mk)
 
+$(call inherit-product, $(DEVICE_PATH)/power/power.mk)
+
 # The stock device is an A/B dynamic-partition device. This stage builds the
 # Lineage-owned framework partitions without packaging an OTA or super image.
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
@@ -88,7 +90,6 @@ PRODUCT_PACKAGES += \
     DashSettingsOverlay \
     DashTelecommOverlay \
     DashTelephonyOverlay \
-    DashThermal \
     DashWifiOverlay \
     ImsService \
     MtkGbaService \

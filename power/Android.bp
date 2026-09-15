@@ -1,0 +1,52 @@
+// Copyright (C) 2026 GitHub @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+java_library {
+    name: "dash-power",
+    srcs: ["src/**/*.java", "aidl/**/*.aidl"],
+    aidl: { local_include_dirs: ["aidl"] },
+    libs: ["services.core"],
+    platform_apis: true,
+    system_ext_specific: true,
+    installable: true,
+    required: ["libdashthermal_jni"],
+}
+
+cc_library_shared {
+    name: "libdashthermal_jni",
+    srcs: ["jni/ThermalLifecycle.cpp"],
+    header_libs: ["jni_headers"],
+    stl: "none",
+    cflags: ["-Wall", "-Wextra", "-Werror"],
+    system_ext_specific: true,
+}
+
+android_test {
+    name: "DashThermalBackendTests",
+    srcs: ["tests/android/**/*.java"],
+    manifest: "tests/android/AndroidManifest.xml",
+    static_libs: [
+        "dash-power",
+        "androidx.test.runner",
+        "mockito-target-minus-junit4",
+    ],
+    libs: ["services.core"],
+    platform_apis: true,
+    certificate: "platform",
+    test_suites: ["device-tests"],
+    optimize: { enabled: false },
+}
+
+// Shared by the platform-signed Settings frontend; the server uses the same AIDL source.
+java_library {
+    name: "dash-thermal-client",
+    srcs: ["aidl/me/sandai/dashpower/IDashThermalService.aidl"],
+    platform_apis: true,
+}
+
+prebuilt_etc {
+    name: "dash-thermal-packages",
+    src: "config/thermal-packages.json",
+    filename: "thermal-packages.json",
+    sub_dir: "dash-power",
+    system_ext_specific: true,
+}
