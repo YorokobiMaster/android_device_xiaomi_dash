@@ -6,7 +6,7 @@ package me.sandai.dashthermal;
 final class ThermalProfiles {
 
     /** Profile ids in display order; -1 is "automatic" and clears the override. */
-    static final int[] IDS = {-1, 0, 50, 19, 18, 20, 25};
+    static final int[] IDS = {-1, 0, 7, 11, 19, 20, 25};
 
     private ThermalProfiles() {
     }
@@ -17,12 +17,12 @@ final class ThermalProfiles {
                 return R.string.profile_auto;
             case 0:
                 return R.string.profile_normal;
-            case 50:
-                return R.string.profile_advanced;
+            case 7:
+                return R.string.profile_class0;
             case 19:
                 return R.string.profile_gaming;
-            case 18:
-                return R.string.profile_gaming_plus;
+            case 11:
+                return R.string.profile_video;
             case 20:
                 return R.string.profile_performance;
             case 25:
@@ -38,12 +38,12 @@ final class ThermalProfiles {
                 return R.string.profile_auto_summary;
             case 0:
                 return R.string.profile_normal_summary;
-            case 50:
-                return R.string.profile_advanced_summary;
+            case 7:
+                return R.string.profile_class0_summary;
             case 19:
                 return R.string.profile_gaming_summary;
-            case 18:
-                return R.string.profile_gaming_plus_summary;
+            case 11:
+                return R.string.profile_video_summary;
             case 20:
                 return R.string.profile_performance_summary;
             case 25:

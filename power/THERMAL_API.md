@@ -51,7 +51,7 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 | cameraElement | int，录像输入元素：1=4K60、2=4K30/8K、99=关闭/其他规格 |
 | cameraUserId | int，当前录像输入所属用户；无输入时为 -1 |
 | offHook / lowTempCharge / reverseCharge | boolean，最近一次参与仲裁的事件输入 |
-| selectableProfiles | int[]，`[-1,0,50,19,18,20,25]` |
+| selectableProfiles | int[]，`[-1,0,7,11,19,20,25]` |
 | overrides | Bundle，包名键 → int 档位，仅所查询用户 |
 
 调用异常时不显示“保存成功”。原子替换之后的目录同步也可能失败：此时持久化未确认，但新文件可能已经可见，异常不承诺回滚；重新读取配置以确认当前内容。后端会失效相关缓存并重新协调，保存错误与节点提交错误分别保留。
@@ -64,14 +64,16 @@ Soong 模块 `dash-thermal-client` 提供 `me.sandai.dashpower.IDashThermalServi
 模式保存在同一个 `/data/system_de/<user>/dash-thermal.json`，增加可选布尔字段
 `performanceMode`；旧版本 1 文件缺少该字段时按 false 读取，旧覆盖保留。
 配置 schema 仍为 1，API 版本为 3；两者独立。
+2026-09-17：覆盖恢复为固定表 ID，可选集合为 `{-1,0,7,11,19,20,25}`。
+未发布的 schema 2 组 ID 方案已撤销，不保留迁移或兼容处理。手动覆盖不随模式切换。
 
 | ID | 原厂名 | 建议手选名称 |
 | --- | --- | --- |
 | -1 | 自动（不写 -1 到节点） | 自动 |
 | 0 | normal | 常规 |
-| 50 | per-normal | 常规 P |
+| 7 | class0 | Class 0 |
+| 11 | video | 视频 |
 | 19 | mgame | 游戏 M |
-| 18 | tgame | 游戏 T |
 | 20 | yuanshen | 游戏 Y |
 | 25 | xingtie | 游戏 X |
 

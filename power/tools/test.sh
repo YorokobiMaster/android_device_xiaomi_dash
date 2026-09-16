@@ -11,13 +11,15 @@ prebuilts/jdk/jdk21/linux-x86/bin/javac -d "$test_output" \
     "$sources/ThermalConfigStore.java" \
     "$sources/ThermalLifecycle.java" \
     "$sources/ThermalScenarioPolicy.java" \
+    "$sources/ThermalProfiles.java" \
     "$sources/ThermalRequestState.java" \
     "$tests/PowerPolicyTest.java" \
     "$tests/ThermalConfigStoreTest.java" \
     "$tests/ThermalLifecycleTest.java" \
     "$tests/ThermalScenarioPolicyTest.java" \
+    "$tests/ThermalProfilesTest.java" \
     "$tests/ThermalRequestStateTest.java"
 for test in PowerPolicyTest ThermalConfigStoreTest ThermalRequestStateTest ThermalLifecycleTest \
-        ThermalScenarioPolicyTest; do
+        ThermalScenarioPolicyTest ThermalProfilesTest; do
     prebuilts/jdk/jdk21/linux-x86/bin/java -cp "$test_output" "me.sandai.dashpower.$test"
 done

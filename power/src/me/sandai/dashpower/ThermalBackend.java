@@ -608,7 +608,7 @@ final class ThermalBackend extends IDashThermalService.Stub {
             out.putBoolean("offHook", offHook);
             out.putBoolean("lowTempCharge", lowTempCharge);
             out.putBoolean("reverseCharge", reverseCharge);
-            out.putIntArray("selectableProfiles", new int[] {-1, 0, 50, 19, 18, 20, 25});
+            out.putIntArray("selectableProfiles", new int[] {-1, 0, 7, 11, 19, 20, 25});
             Bundle overrides = new Bundle();
             config.overrides.forEach(overrides::putInt);
             out.putBundle("overrides", overrides);
@@ -782,7 +782,7 @@ final class ThermalBackend extends IDashThermalService.Stub {
             @Override public void onHelp() {
                 getOutPrintWriter().println("status | get USER PACKAGE | set USER PACKAGE ID\n"
                         + "enable USER true|false | resync\n"
-                        + "ID: -1 auto, 0 normal, 50 per-normal, 19 mgame, 18 tgame, "
+                        + "ID: -1 auto, 0 normal, 7 class0, 11 video, 19 mgame, "
                         + "20 yuanshen, 25 xingtie. Writes acknowledge saved config, not actuation.");
             }
         }.exec(this, in, out, err, args, callback, receiver);

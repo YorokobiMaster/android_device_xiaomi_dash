@@ -8,7 +8,7 @@ final class ThermalProfiles {
     static final int AUTO = -1;
 
     static boolean selectable(int id) {
-        return id == AUTO || id == 0 || id == 50 || id == 19 || id == 18
+        return id == AUTO || id == 0 || id == 7 || id == 11 || id == 19
                 || id == 20 || id == 25;
     }
 

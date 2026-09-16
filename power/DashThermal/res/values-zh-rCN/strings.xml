@@ -19,23 +19,23 @@
 
     <string name="profile_auto">自动</string>
     <string name="profile_normal">普通</string>
-    <string name="profile_advanced">增强</string>
+    <string name="profile_class0">Class 0</string>
     <string name="profile_gaming">游戏</string>
-    <string name="profile_gaming_plus">游戏+</string>
+    <string name="profile_video">视频</string>
     <string name="profile_performance">高性能</string>
     <string name="profile_extreme">极致</string>
 
     <string name="profile_auto_summary">按内置分类自动选择（选择即清除用户覆盖）</string>
     <string name="profile_auto_summary_category">按分类使用 · %1$s</string>
     <string name="profile_normal_summary">默认温控策略</string>
-    <string name="profile_advanced_summary">高温段放宽 CPU 上限</string>
+    <string name="profile_class0_summary">固定使用 class0 温控策略</string>
     <string name="profile_gaming_summary">基础游戏策略</string>
-    <string name="profile_gaming_plus_summary">通用游戏策略</string>
-    <string name="profile_performance_summary">CPU/GPU 与“游戏+”相同，温度阈值更高</string>
+    <string name="profile_video_summary">固定使用视频温控策略</string>
+    <string name="profile_performance_summary">固定使用 yuanshen 温控策略</string>
     <string name="profile_extreme_summary">联动 GPU 频率与核心调度</string>
 
     <string name="list_subtitle_auto_category">自动 · %1$s</string>
-    <string name="detail_footer">更高的档位会放宽温度限制，机身可能更热</string>
+    <string name="detail_footer">手动档位不随性能模式切换，并优先于事件场景。</string>
     <string name="performance_mode_title">性能模式</string>
     <string name="performance_mode_summary">放宽部分调度限制，可能增加耗电。</string>
 </resources>

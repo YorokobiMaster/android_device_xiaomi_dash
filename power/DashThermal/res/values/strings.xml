@@ -19,23 +19,23 @@
 
     <string name="profile_auto">Auto</string>
     <string name="profile_normal">Normal</string>
-    <string name="profile_advanced">Advanced</string>
+    <string name="profile_class0">Class 0</string>
     <string name="profile_gaming">Gaming</string>
-    <string name="profile_gaming_plus">Gaming+</string>
+    <string name="profile_video">Video</string>
     <string name="profile_performance">Performance</string>
     <string name="profile_extreme">Extreme</string>
 
     <string name="profile_auto_summary">Automatically choose by built-in category (clears your override)</string>
     <string name="profile_auto_summary_category">By category: %1$s</string>
     <string name="profile_normal_summary">Default thermal policy</string>
-    <string name="profile_advanced_summary">Relaxed CPU limits at high temperatures</string>
+    <string name="profile_class0_summary">Fixed class0 thermal policy</string>
     <string name="profile_gaming_summary">Basic gaming policy</string>
-    <string name="profile_gaming_plus_summary">General gaming policy</string>
-    <string name="profile_performance_summary">Same CPU/GPU as Gaming+, higher thermal thresholds</string>
+    <string name="profile_video_summary">Fixed video thermal policy</string>
+    <string name="profile_performance_summary">Fixed yuanshen thermal policy</string>
     <string name="profile_extreme_summary">Also tunes GPU frequency and core scheduling</string>
 
     <string name="list_subtitle_auto_category">Auto · %1$s</string>
-    <string name="detail_footer">Higher profiles relax thermal limits and may increase device temperature.</string>
+    <string name="detail_footer">Manual profiles stay fixed across Performance Mode changes and override event scenarios.</string>
     <string name="performance_mode_title">Performance Mode</string>
     <string name="performance_mode_summary">Relaxes selected scheduling limits. May increase battery usage.</string>
 </resources>
