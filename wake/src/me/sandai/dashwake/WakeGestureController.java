@@ -6,6 +6,7 @@
 package me.sandai.dashwake;
 
 import android.app.ActivityManager;
+import android.app.AlarmManager;
 import android.app.KeyguardManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -38,7 +39,7 @@ final class WakeGestureController implements SensorEventListener {
     private static final String TAG = "DashWake";
     private static final int PICKUP_SENSOR_TYPE = 33171036;
     private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
-    private static final String DOZE_PULSE_ACTION = "com.android.systemui.doze.pulse";
+    private static final String DOZE_PULSE_ACTION = "com.android.systemui.doze.gaze";
     // Stock-style polling: arm AOV for a short window every period instead of
     // streaming continuously. 5 s matches the stock smart-AOD re-check cadence.
     private static final long GAZE_POLL_WINDOW_MS = 3_000;
@@ -48,6 +49,7 @@ final class WakeGestureController implements SensorEventListener {
 
     private final Context mContext;
     private final Handler mHandler;
+    private final AlarmManager mAlarmManager;
     private final PowerManager mPowerManager;
     private final SensorManager mSensorManager;
     private final SensorPrivacyManager mPrivacyManager;
@@ -57,16 +59,67 @@ final class WakeGestureController implements SensorEventListener {
     private boolean mPickupRegistered;
     private boolean mWokeByPickup;
     private AovConnection mAovConnection;
+    private long mNextPollElapsed;
+    private final AlarmManager.OnAlarmListener mPollTask;
+    private final AlarmManager.OnAlarmListener mPollTimeout;
 
     WakeGestureController(Context context) {
         mContext = context;
         mHandler = new Handler(context.getMainLooper());
+        mAlarmManager = context.getSystemService(AlarmManager.class);
         mPowerManager = context.getSystemService(PowerManager.class);
         mSensorManager = context.getSystemService(SensorManager.class);
         mPrivacyManager = context.getSystemService(SensorPrivacyManager.class);
         mDisplayManager = context.getSystemService(DisplayManager.class);
         mPickupSensor = mSensorManager.getDefaultSensor(PICKUP_SENSOR_TYPE, true);
         mKeyguardManager = context.getSystemService(KeyguardManager.class);
+
+        mPollTimeout = () -> {
+            AovConnection connection = mAovConnection;
+            if (connection == null || connection.bridge == null || connection.callback == null) {
+                return;
+            }
+            connection.callback = null;
+            try {
+                connection.bridge.stop();
+            } catch (RemoteException e) {
+                Log.w(TAG, "Unable to stop AOV poll", e);
+            }
+            scheduleNextPoll();
+        };
+
+        mPollTask = () -> {
+            AovConnection connection = mAovConnection;
+            if (connection == null || connection.bridge == null || connection.callback != null
+                    || !canDetectGaze()) {
+                return;
+            }
+            mNextPollElapsed = SystemClock.elapsedRealtime() + GAZE_POLL_PERIOD_MS;
+            connection.callback = new IDashAovCallback.Stub() {
+                @Override
+                public void onPresenceDetected() {
+                    mHandler.post(() -> {
+                        if (mAovConnection != connection || connection.callback != this) return;
+                        connection.callback = null;
+                        mAlarmManager.cancel(mPollTimeout);
+                        if (canDetectGaze()) {
+                            pulse();
+                            scheduleNextPoll();
+                        }
+                    });
+                }
+            };
+            try {
+                connection.bridge.start(connection.callback);
+                mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                        SystemClock.elapsedRealtime() + GAZE_POLL_WINDOW_MS,
+                        TAG + ":poll-timeout", mPollTimeout, mHandler);
+            } catch (RemoteException e) {
+                connection.callback = null;
+                Log.w(TAG, "Unable to start AOV poll", e);
+                scheduleNextPoll();
+            }
+        };
     }
 
     void start() {
@@ -108,7 +161,8 @@ final class WakeGestureController implements SensorEventListener {
         mContext.registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())
+                        || Intent.ACTION_USER_PRESENT.equals(intent.getAction())) {
                     mWokeByPickup = false;
                 } else if (Intent.ACTION_USER_SWITCHED.equals(intent.getAction())) {
                     mWokeByPickup = false;
@@ -155,7 +209,8 @@ final class WakeGestureController implements SensorEventListener {
         }
         Display display = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
         int state = display == null ? Display.STATE_UNKNOWN : display.getState();
-        return state == Display.STATE_OFF || state == Display.STATE_DOZE
+        // A visible Doze pulse uses STATE_ON while PowerManager remains noninteractive.
+        return state == Display.STATE_OFF || state == Display.STATE_ON || state == Display.STATE_DOZE
                 || state == Display.STATE_DOZE_SUSPEND;
     }
 
@@ -216,46 +271,22 @@ final class WakeGestureController implements SensorEventListener {
     }
 
     // Gaze never wakes the device; it only lights the ambient display through
-    // SystemUI's exported pulse trigger, like the stock smart-AOD mode.
+    // SystemUI's DEVICE_POWER-protected gaze trigger.
     private void pulse() {
         Log.i(TAG, "Gaze pulse");
         mContext.sendBroadcast(new Intent(DOZE_PULSE_ACTION).setPackage(SYSTEMUI_PACKAGE));
     }
 
     private void scheduleNextPoll() {
-        mHandler.postDelayed(mPollTask, GAZE_POLL_PERIOD_MS);
+        // This persistent system-UID app is exempt from idle alarm throttling.
+        // Use elapsed time so both polling and teardown run across CPU suspend.
+        mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                mNextPollElapsed, TAG + ":poll", mPollTask, mHandler);
     }
 
-    private final Runnable mPollTask = () -> {
-        AovConnection connection = mAovConnection;
-        if (connection == null || connection.bridge == null || connection.callback == null
-                || !canDetectGaze()) {
-            return;
-        }
-        try {
-            connection.bridge.start(connection.callback);
-            mHandler.postDelayed(mPollTimeout, GAZE_POLL_WINDOW_MS);
-        } catch (RemoteException e) {
-            Log.w(TAG, "Unable to start AOV poll", e);
-            scheduleNextPoll();
-        }
-    };
-
-    private final Runnable mPollTimeout = () -> {
-        AovConnection connection = mAovConnection;
-        if (connection != null && connection.bridge != null) {
-            try {
-                connection.bridge.stop();
-            } catch (RemoteException e) {
-                Log.w(TAG, "Unable to stop AOV poll", e);
-            }
-        }
-        scheduleNextPoll();
-    };
-
     private void stopAov() {
-        mHandler.removeCallbacks(mPollTask);
-        mHandler.removeCallbacks(mPollTimeout);
+        mAlarmManager.cancel(mPollTask);
+        mAlarmManager.cancel(mPollTimeout);
         AovConnection connection = mAovConnection;
         if (connection == null) return;
         mAovConnection = null;
@@ -281,26 +312,14 @@ final class WakeGestureController implements SensorEventListener {
                 stopAov();
                 return;
             }
-            callback = new IDashAovCallback.Stub() {
-                @Override
-                public void onPresenceDetected() {
-                    mHandler.post(() -> {
-                        if (mAovConnection != AovConnection.this || callback != this) {
-                            return;
-                        }
-                        mHandler.removeCallbacks(mPollTimeout);
-                        if (canDetectGaze()) {
-                            pulse();
-                            scheduleNextPoll();
-                        }
-                    });
-                }
-            };
-            mPollTask.run();
+            mPollTask.onAlarm();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            if (mAovConnection != this) return;
+            mAlarmManager.cancel(mPollTask);
+            mAlarmManager.cancel(mPollTimeout);
             bridge = null;
             callback = null;
         }
