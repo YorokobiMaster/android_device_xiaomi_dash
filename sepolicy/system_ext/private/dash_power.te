@@ -6,4 +6,6 @@ type sysfs_battery_supply;
 allow system_server mtk_hal_power_service:service_manager find;
 # Stock loaded policy already grants system_server binder call/transfer to mtk_hal_power.
 get_prop(system_server, dash_power_prop)
-allow system_server { sysfs_battery_supply sysfs_usb_supply }:file r_file_perms;
+# Explicit permission list: r_file_perms would pull in ioctl and trip the
+# domain.te no-arbitrary-ioctl neverallow (same pattern as dash_led.te).
+allow system_server { sysfs_battery_supply sysfs_usb_supply }:file { getattr open read };
