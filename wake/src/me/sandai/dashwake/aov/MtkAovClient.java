@@ -51,6 +51,7 @@ final class MtkAovClient implements AutoCloseable {
     private final Handler mWorker;
     private final Listener mListener;
     private final AovCallback mCallback;
+    private final int mXmParam1;
 
     private IBinder mService;
     private IBinder.DeathRecipient mDeathRecipient;
@@ -58,10 +59,11 @@ final class MtkAovClient implements AutoCloseable {
     private boolean mStarted;
     private boolean mNoPresenceReported;
 
-    MtkAovClient(Handler worker, Listener listener) {
+    MtkAovClient(Handler worker, Listener listener, int xmParam1) {
         mWorker = worker;
         mListener = listener;
         mCallback = new AovCallback(this::enqueueEvent);
+        mXmParam1 = xmParam1;
     }
 
     boolean start() {
@@ -98,7 +100,7 @@ final class MtkAovClient implements AutoCloseable {
             params.frameRate = FRAME_RATE;
             params.detectionMode = DETECTION_MODE_FACE_AND_GAZE;
             params.debugDisableCallback = false;
-            params.xmParam1 = 1; // Select the stock locked/screen-off AOV route.
+            params.xmParam1 = mXmParam1; // 1 = stock locked/screen-off route, 0 = unlocked route.
 
             int result = -1;
             for (int attempt = 0; attempt < START_ATTEMPTS && result != 0; attempt++) {
@@ -178,11 +180,12 @@ final class MtkAovClient implements AutoCloseable {
             }
             if (Byte.toUnsignedInt(output[24]) == 1) {
                 mWorker.post(this::handlePresenceDetected);
-            } else if (!mNoPresenceReported) {
+                return;
+            }
+            if (!mNoPresenceReported) {
                 mNoPresenceReported = true;
                 mWorker.post(this::handleNoPresenceDetected);
             }
-            return;
         }
     }
 

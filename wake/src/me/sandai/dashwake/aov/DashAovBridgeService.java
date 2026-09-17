@@ -134,7 +134,7 @@ public final class DashAovBridgeService extends Service {
                 mWorker.removeCallbacks(mRetry);
                 if (mClientCallback != null) mWorker.postDelayed(mRetry, RETRY_DELAY_MS);
             }
-        });
+        }, 1);
         if (client.start()) {
             mAovClient = client;
         } else {

@@ -86,7 +86,7 @@ public final class DashAttentionService extends AttentionService {
                     fail(ATTENTION_FAILURE_UNKNOWN);
                 }
             }
-        });
+        }, 0);
         mClient = client;
         if (!client.start()) {
             fail(ATTENTION_FAILURE_UNKNOWN);
@@ -97,6 +97,7 @@ public final class DashAttentionService extends AttentionService {
 
     private void complete(int result) {
         AttentionCallback callback = detachCheck();
+        Log.i(TAG, "verdict=" + result);
         if (callback != null) {
             callback.onSuccess(result, System.currentTimeMillis());
         }
@@ -105,6 +106,7 @@ public final class DashAttentionService extends AttentionService {
 
     private void fail(int error) {
         AttentionCallback callback = detachCheck();
+        Log.i(TAG, "fail=" + error);
         if (callback != null) {
             callback.onFailure(error);
         }
