@@ -9,6 +9,9 @@
 # genfscon labels real sysfs objects and does not follow symlinks, so the
 # class entry must be spelled as its resolved platform path; labeling
 # /class/power_supply/battery/input_suspend is a no-op.
+# This only sets the label at inode instantiation; every charger uevent
+# re-runs ueventd restorecon, which follows file_contexts instead — see the
+# matching entry in file_contexts, which is what actually keeps the label.
 genfscon sysfs /devices/platform/battery-manager/power_supply/battery/input_suspend u:object_r:sysfs_dash_charge:s0
 
 # Real path resolved on dash; all other thermal nodes retain their vendor labels.
