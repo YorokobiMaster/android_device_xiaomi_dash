@@ -39,32 +39,6 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <LinearLayout
-                android:id="@+id/switch_card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/list_horizontal_margin"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="@dimen/list_horizontal_margin"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:minHeight="72dp"
-                android:orientation="horizontal"
-                android:padding="@dimen/card_padding">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/master_switch_title"
-                    android:textAppearance="?android:attr/textAppearanceListItem" />
-
-                <Switch
-                    android:id="@+id/master_switch"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
             <TextView
                 android:id="@+id/error_hint"
                 android:layout_width="match_parent"
@@ -89,12 +63,6 @@
                     android:paddingTop="8dp"
                     android:paddingBottom="16dp"
                     android:scrollbars="vertical" />
-
-                <View
-                    android:id="@+id/list_blocker"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:visibility="gone" />
             </FrameLayout>
         </LinearLayout>
 

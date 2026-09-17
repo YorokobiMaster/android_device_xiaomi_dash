@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Detail page: one app, seven mutually exclusive profile cards. */
+/** Detail page: fixed scheduling policies in sections; the radio rests on the current one. */
 public class AppDetailActivity extends CollapsingToolbarBaseActivity {
 
     private static final String EXTRA_PACKAGE = "packageName";
@@ -33,14 +33,12 @@ public class AppDetailActivity extends CollapsingToolbarBaseActivity {
     private final Map<Integer, ImageView> mRadios = new HashMap<>();
 
     private String mPackageName;
-    private String mStockGroup = "";
-    private int mOverrideProfile = -1;
+    private int mSelectedProfile = -1;
 
     private LinearLayout mOptionsContainer;
     private View mHeader;
     private View mFooter;
     private TextView mUnavailableText;
-    private TextView mAutoSummary;
 
     public static void start(Context context, String packageName) {
         final Intent intent = new Intent(context, AppDetailActivity.class);
@@ -57,13 +55,14 @@ public class AppDetailActivity extends CollapsingToolbarBaseActivity {
             return;
         }
         setContentView(R.layout.activity_app_detail);
+        setTitle(R.string.app_name);
 
         mHeader = findViewById(R.id.app_header);
         mOptionsContainer = findViewById(R.id.options_container);
         mFooter = findViewById(R.id.detail_footer);
         mUnavailableText = findViewById(R.id.unavailable_text);
 
-        buildOptionCards();
+        buildOptions();
         loadHeader();
     }
 
@@ -101,7 +100,6 @@ public class AppDetailActivity extends CollapsingToolbarBaseActivity {
                 final Drawable icon = pm.getApplicationIcon(info);
                 runOnUiThread(() -> {
                     final CharSequence title = label == null ? mPackageName : label;
-                    setTitle(title);
                     ((TextView) findViewById(R.id.app_label)).setText(title);
                     ((ImageView) findViewById(R.id.app_icon)).setImageDrawable(icon);
                 });
@@ -111,24 +109,44 @@ public class AppDetailActivity extends CollapsingToolbarBaseActivity {
         });
     }
 
-    private void buildOptionCards() {
+    private void buildOptions() {
+        addSection(R.string.section_general, ThermalProfiles.GENERAL);
+        addSection(R.string.section_gaming, ThermalProfiles.GAMING);
+        addSection(R.string.section_others, ThermalProfiles.OTHERS);
+    }
+
+    private void addSection(int headerRes, int[] profileIds) {
         final LayoutInflater inflater = LayoutInflater.from(this);
-        for (int profileId : ThermalProfiles.IDS) {
-            final View card = inflater.inflate(R.layout.item_profile_option,
-                    mOptionsContainer, false);
-            final TextView title = card.findViewById(R.id.option_title);
-            final TextView summary = card.findViewById(R.id.option_summary);
-            final ImageView radio = card.findViewById(R.id.option_radio);
-            title.setText(ThermalProfiles.nameRes(profileId));
-            summary.setText(ThermalProfiles.summaryRes(profileId));
-            if (profileId == -1) {
-                mAutoSummary = summary;
-            }
-            mRadios.put(profileId, radio);
-            card.setOnClickListener(v -> onProfileSelected(profileId));
-            mOptionsContainer.addView(card);
+        final TextView header = (TextView) inflater.inflate(
+                R.layout.item_section_header, mOptionsContainer, false);
+        header.setText(headerRes);
+        mOptionsContainer.addView(header);
+        for (int profileId : profileIds) {
+            addOption(profileId);
         }
-        updateSelection();
+    }
+
+    private void addOption(int profileId) {
+        final View card = LayoutInflater.from(this).inflate(
+                R.layout.item_profile_option, mOptionsContainer, false);
+        bindOption(card, profileId);
+        mRadios.put(profileId, card.findViewById(R.id.option_radio));
+        card.setOnClickListener(v -> onProfileSelected(profileId));
+        mOptionsContainer.addView(card);
+    }
+
+    private void bindOption(View card, int profileId) {
+        final TextView title = card.findViewById(R.id.option_title);
+        final TextView summary = card.findViewById(R.id.option_summary);
+        final int nameRes = ThermalProfiles.nameRes(profileId);
+        title.setText(nameRes != 0 ? getString(nameRes)
+                : getString(R.string.profile_unknown, profileId));
+        final int summaryRes = ThermalProfiles.summaryRes(profileId);
+        if (summaryRes != 0) {
+            summary.setText(summaryRes);
+        } else {
+            summary.setVisibility(View.GONE);
+        }
     }
 
     private void loadPolicy() {
@@ -140,10 +158,9 @@ public class AppDetailActivity extends CollapsingToolbarBaseActivity {
                     return;
                 }
                 showAvailable();
-                mOverrideProfile = policy.getInt(
-                        ThermalServiceClient.KEY_OVERRIDE_PROFILE, -1);
-                mStockGroup = policy.getString(ThermalServiceClient.KEY_STOCK_GROUP, "");
-                updateAutoSummary();
+                mSelectedProfile = ThermalProfiles.canon(policy.getInt(
+                        ThermalServiceClient.KEY_SELECTED_PROFILE, 0));
+                ensureOptionVisible(mSelectedProfile);
                 updateSelection();
                 setOptionsEnabled(true);
             }
@@ -155,8 +172,16 @@ public class AppDetailActivity extends CollapsingToolbarBaseActivity {
         });
     }
 
+    /** A current policy outside the listed sections gets a raw-named row in Others. */
+    private void ensureOptionVisible(int profileId) {
+        if (profileId == -1 || mRadios.containsKey(profileId)) {
+            return;
+        }
+        addOption(profileId);
+    }
+
     private void onProfileSelected(int profileId) {
-        if (profileId == mOverrideProfile) {
+        if (profileId == mSelectedProfile) {
             return;
         }
         setOptionsEnabled(false);
@@ -173,19 +198,8 @@ public class AppDetailActivity extends CollapsingToolbarBaseActivity {
 
     private void updateSelection() {
         for (Map.Entry<Integer, ImageView> entry : mRadios.entrySet()) {
-            entry.getValue().setImageResource(entry.getKey() == mOverrideProfile
+            entry.getValue().setImageResource(entry.getKey() == mSelectedProfile
                     ? R.drawable.ic_radio_checked : R.drawable.ic_radio_unchecked);
-        }
-    }
-
-    private void updateAutoSummary() {
-        if (mAutoSummary == null) {
-            return;
-        }
-        if (mStockGroup != null && !mStockGroup.isEmpty()) {
-            mAutoSummary.setText(getString(R.string.profile_auto_summary_category, mStockGroup));
-        } else {
-            mAutoSummary.setText(R.string.profile_auto_summary);
         }
     }
 

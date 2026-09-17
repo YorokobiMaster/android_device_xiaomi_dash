@@ -73,7 +73,7 @@ public final class ThermalBackendPersistenceTest extends TestCase {
             assertFalse(backend.getState(user).getBoolean("enabled"));
             backend.setPerformanceMode(user, false);
             assertEquals(25, backend.getAppPolicy(user, PACKAGE).getInt("selectedProfile"));
-            for (int id : new int[] {0, 7, 11, 19, 20, 25}) {
+            for (int id : new int[] {0, 1, 6, 7, 9, 10, 11, 12, 15, 19, 20, 25}) {
                 backend.setAppProfile(user, PACKAGE, id);
                 for (boolean performance : new boolean[] {true, false}) {
                     backend.setPerformanceMode(user, performance);

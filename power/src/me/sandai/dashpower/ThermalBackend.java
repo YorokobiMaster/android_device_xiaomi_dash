@@ -608,7 +608,8 @@ final class ThermalBackend extends IDashThermalService.Stub {
             out.putBoolean("offHook", offHook);
             out.putBoolean("lowTempCharge", lowTempCharge);
             out.putBoolean("reverseCharge", reverseCharge);
-            out.putIntArray("selectableProfiles", new int[] {-1, 0, 7, 11, 19, 20, 25});
+            out.putIntArray("selectableProfiles",
+                    new int[] {-1, 0, 1, 6, 7, 9, 10, 11, 12, 15, 19, 20, 25});
             Bundle overrides = new Bundle();
             config.overrides.forEach(overrides::putInt);
             out.putBundle("overrides", overrides);

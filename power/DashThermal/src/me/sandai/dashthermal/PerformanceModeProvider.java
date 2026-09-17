@@ -32,8 +32,7 @@ public final class PerformanceModeProvider extends EntriesProvider {
                     return data;
                 }
             }.setTitle(R.string.performance_mode_title)
-                    .setSummary(R.string.performance_mode_summary)
-                    .setIcon(R.drawable.ic_performance_mode).setIconTintable(true);
+                    .setSummary(R.string.performance_mode_summary);
         }
 
         @Override public boolean isSwitchChecked() {

@@ -2,31 +2,42 @@
 // SPDX-License-Identifier: Apache-2.0
 package me.sandai.dashthermal;
 
-/** Static table of the manually selectable thermal profiles. */
+/** Fixed thermald table ids shown on the detail page, grouped by section. */
 final class ThermalProfiles {
 
-    /** Profile ids in display order; -1 is "automatic" and clears the override. */
-    static final int[] IDS = {-1, 0, 7, 11, 19, 20, 25};
+    static final int[] GENERAL = {0, 7, 11};
+    static final int[] GAMING = {19, 20, 25};
+    static final int[] OTHERS = {6, 10, 15, 1, 9, 12};
 
     private ThermalProfiles() {
     }
 
     static int nameRes(int profileId) {
         switch (profileId) {
-            case -1:
-                return R.string.profile_auto;
             case 0:
-                return R.string.profile_normal;
+                return R.string.profile_default;
             case 7:
-                return R.string.profile_class0;
-            case 19:
-                return R.string.profile_gaming;
+                return R.string.profile_everyday;
             case 11:
                 return R.string.profile_video;
+            case 19:
+                return R.string.profile_standard;
             case 20:
-                return R.string.profile_performance;
+                return R.string.profile_enhanced;
             case 25:
                 return R.string.profile_extreme;
+            case 6:
+                return R.string.profile_evaluation;
+            case 10:
+                return R.string.profile_navigation;
+            case 15:
+                return R.string.profile_camera;
+            case 1:
+                return R.string.profile_transfer;
+            case 9:
+                return R.string.profile_arvr;
+            case 12:
+                return R.string.profile_demo;
             default:
                 return 0;
         }
@@ -34,20 +45,72 @@ final class ThermalProfiles {
 
     static int summaryRes(int profileId) {
         switch (profileId) {
-            case -1:
-                return R.string.profile_auto_summary;
             case 0:
-                return R.string.profile_normal_summary;
+                return R.string.profile_default_summary;
             case 7:
-                return R.string.profile_class0_summary;
-            case 19:
-                return R.string.profile_gaming_summary;
+                return R.string.profile_everyday_summary;
             case 11:
                 return R.string.profile_video_summary;
+            case 19:
+                return R.string.profile_standard_summary;
             case 20:
-                return R.string.profile_performance_summary;
+                return R.string.profile_enhanced_summary;
             case 25:
                 return R.string.profile_extreme_summary;
+            default:
+                return 0;
+        }
+    }
+
+    static boolean known(int profileId) {
+        return nameRes(profileId) != 0;
+    }
+
+    /** Performance-mode counterparts resolve onto the same option as their base table. */
+    static int canon(int profileId) {
+        switch (profileId) {
+            case 50:
+                return 0;
+            case 57:
+                return 7;
+            case 61:
+                return 11;
+            case 18:
+                return 19;
+            default:
+                return profileId;
+        }
+    }
+
+    /** Display name for a stock classification in the main list subtitle. */
+    static int groupNameRes(String stockGroup) {
+        if (stockGroup == null) {
+            return 0;
+        }
+        switch (stockGroup) {
+            case "class0":
+                return R.string.profile_everyday;
+            case "video":
+                return R.string.profile_video;
+            case "game":
+            case "game2":
+                return R.string.category_gaming;
+            case "yuanshen":
+                return R.string.category_tencent;
+            case "xingtie":
+                return R.string.category_mihoyo;
+            case "navigation":
+                return R.string.profile_navigation;
+            case "camera":
+                return R.string.profile_camera;
+            case "evaluation":
+                return R.string.profile_evaluation;
+            case "huanji":
+                return R.string.profile_transfer;
+            case "arvr":
+                return R.string.profile_arvr;
+            case "demo":
+                return R.string.profile_demo;
             default:
                 return 0;
         }

@@ -24,10 +24,10 @@ final class ThermalServiceClient {
     static final String SERVICE_NAME = "dash_thermal";
 
     static final String KEY_READY = "ready";
-    static final String KEY_ENABLED = "enabled";
     static final String KEY_ERROR = "error";
     static final String KEY_OVERRIDES = "overrides";
     static final String KEY_OVERRIDE_PROFILE = "overrideProfile";
+    static final String KEY_SELECTED_PROFILE = "selectedProfile";
     static final String KEY_STOCK_GROUP = "stockGroup";
 
     private static final long RETRY_DELAY_MS = 3000;
@@ -157,23 +157,6 @@ final class ThermalServiceClient {
             if (service != null) {
                 try {
                     service.setAppProfile(mUserId, packageName, profileId);
-                    success = true;
-                } catch (RemoteException | RuntimeException e) {
-                    success = false;
-                }
-            }
-            final boolean result = success;
-            postCallback(() -> callback.onResult(result));
-        });
-    }
-
-    void setEnabled(boolean enabled, OpCallback callback) {
-        mExecutor.execute(() -> {
-            final IDashThermalService service = mService;
-            boolean success = false;
-            if (service != null) {
-                try {
-                    service.setEnabled(mUserId, enabled);
                     success = true;
                 } catch (RemoteException | RuntimeException e) {
                     success = false;

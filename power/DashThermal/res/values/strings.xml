@@ -5,34 +5,47 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <string name="app_name">App thermal</string>
-    <string name="settings_summary">Choose a thermal profile for each app</string>
+    <string name="app_name">App scheduling</string>
+    <string name="settings_summary">Choose a scheduling policy for each app</string>
     <string name="action_search">Search</string>
     <string name="search_apps_hint">Search apps</string>
     <string name="action_show_system">Show system</string>
     <string name="filter_all_apps">All apps</string>
     <string name="filter_modified">Modified</string>
-    <string name="master_switch_title">Per-app thermal control</string>
-    <string name="service_unavailable">Thermal service unavailable</string>
+    <string name="service_unavailable">Scheduling service unavailable</string>
     <string name="save_failed">Couldn\'t save. Try again.</string>
     <string name="last_error_format">Last error: %1$s</string>
 
     <string name="profile_auto">Auto</string>
-    <string name="profile_normal">Normal</string>
-    <string name="profile_class0">Class 0</string>
-    <string name="profile_gaming">Gaming</string>
-    <string name="profile_video">Video</string>
-    <string name="profile_performance">Performance</string>
-    <string name="profile_extreme">Extreme</string>
 
-    <string name="profile_auto_summary">Automatically choose by built-in category (clears your override)</string>
-    <string name="profile_auto_summary_category">By category: %1$s</string>
-    <string name="profile_normal_summary">Default thermal policy</string>
-    <string name="profile_class0_summary">Fixed class0 thermal policy</string>
-    <string name="profile_gaming_summary">Basic gaming policy</string>
-    <string name="profile_video_summary">Fixed video thermal policy</string>
-    <string name="profile_performance_summary">Fixed yuanshen thermal policy</string>
-    <string name="profile_extreme_summary">Also tunes GPU frequency and core scheduling</string>
+    <string name="section_general">General</string>
+    <string name="section_gaming">Gaming</string>
+    <string name="section_others">Others</string>
+
+    <string name="profile_default">Default</string>
+    <string name="profile_everyday">Everyday apps</string>
+    <string name="profile_video">Video playback</string>
+    <string name="profile_standard">Standard</string>
+    <string name="profile_enhanced">Enhanced</string>
+    <string name="profile_extreme">Extreme</string>
+    <string name="profile_evaluation">Evaluation</string>
+    <string name="profile_navigation">Navigation</string>
+    <string name="profile_camera">Camera &amp; Gallery</string>
+    <string name="profile_transfer">Device transfer</string>
+    <string name="profile_arvr">AR/VR</string>
+    <string name="profile_demo">Demo</string>
+
+    <string name="profile_default_summary">Default scheduling policy, suitable for most apps</string>
+    <string name="profile_everyday_summary">Designed for frequently used foreground apps</string>
+    <string name="profile_video_summary">Keeps extended video playback cooler and stable</string>
+    <string name="profile_standard_summary">Standard CPU and thermal limits</string>
+    <string name="profile_enhanced_summary">Higher CPU limits and thermal thresholds</string>
+    <string name="profile_extreme_summary">Widest GPU and thermal operating range</string>
+
+    <string name="category_gaming">Gaming</string>
+    <string name="category_tencent">Tencent games</string>
+    <string name="category_mihoyo">miHoYo games</string>
+    <string name="profile_unknown">Unknown policy (%1$d)</string>
 
     <string name="list_subtitle_auto_category">Auto · %1$s</string>
     <string name="detail_footer">Manual profiles stay fixed across Performance Mode changes and override event scenarios.</string>

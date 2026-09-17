@@ -5,10 +5,10 @@ package me.sandai.dashpower;
 
 public final class ThermalProfilesTest {
     public static void main(String[] args) {
-        for (int id : new int[] {-1, 0, 7, 11, 19, 20, 25}) {
+        for (int id : new int[] {-1, 0, 1, 6, 7, 9, 10, 11, 12, 15, 19, 20, 25}) {
             if (!ThermalProfiles.selectable(id)) throw new AssertionError("Rejected " + id);
         }
-        for (int id : new int[] {-2, 1, 18, 50, 57, 61, 1000, 1001, 1002, 1003}) {
+        for (int id : new int[] {-2, 2, 18, 50, 57, 61, 1000, 1001, 1002, 1003}) {
             if (ThermalProfiles.selectable(id)) throw new AssertionError("Accepted " + id);
         }
         equal(7, ThermalProfiles.forGroup("class0", false));

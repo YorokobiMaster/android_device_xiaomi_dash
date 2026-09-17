@@ -18,9 +18,7 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.PopupMenu;
-import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -42,6 +40,9 @@ public class MainActivity extends CollapsingToolbarBaseActivity
 
     private static final int FILTER_ALL = 0;
     private static final int FILTER_MODIFIED = 1;
+    private static final int FILTER_GENERAL = 2;
+    private static final int FILTER_GAMING = 3;
+    private static final int FILTER_OTHERS = 4;
     private static final String PREF_SHOW_SYSTEM = "show_system";
 
     private final ThermalServiceClient mClient = new ThermalServiceClient();
@@ -50,8 +51,6 @@ public class MainActivity extends CollapsingToolbarBaseActivity
     private TextView mFilterChip;
     private TextView mErrorHint;
     private TextView mUnavailableText;
-    private Switch mMasterSwitch;
-    private View mListBlocker;
     private RecyclerView mRecyclerView;
     private AppListAdapter mAdapter;
 
@@ -59,8 +58,6 @@ public class MainActivity extends CollapsingToolbarBaseActivity
     private final Map<String, Integer> mOverrides = new LinkedHashMap<>();
 
     private boolean mAvailable;
-    private boolean mEnabled;
-    private boolean mUpdatingSwitch;
     private int mFilter = FILTER_ALL;
     private String mQuery = "";
     private boolean mShowSystem;
@@ -76,8 +73,6 @@ public class MainActivity extends CollapsingToolbarBaseActivity
         mFilterChip = findViewById(R.id.filter_chip);
         mErrorHint = findViewById(R.id.error_hint);
         mUnavailableText = findViewById(R.id.unavailable_text);
-        mMasterSwitch = findViewById(R.id.master_switch);
-        mListBlocker = findViewById(R.id.list_blocker);
         mRecyclerView = findViewById(R.id.app_list);
 
         mAdapter = new AppListAdapter(this);
@@ -85,26 +80,6 @@ public class MainActivity extends CollapsingToolbarBaseActivity
         mRecyclerView.setAdapter(mAdapter);
 
         mFilterChip.setOnClickListener(this::showFilterPopup);
-        mListBlocker.setOnTouchListener((v, event) -> true);
-
-        mMasterSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (mUpdatingSwitch) {
-                return;
-            }
-            mMasterSwitch.setEnabled(false);
-            mClient.setEnabled(isChecked, success -> {
-                mMasterSwitch.setEnabled(true);
-                if (success) {
-                    mEnabled = isChecked;
-                    updateListEnabledState();
-                } else {
-                    mUpdatingSwitch = true;
-                    mMasterSwitch.setChecked(!isChecked);
-                    mUpdatingSwitch = false;
-                    Toast.makeText(this, R.string.save_failed, Toast.LENGTH_SHORT).show();
-                }
-            });
-        });
 
         updateFilterChipText();
         showUnavailable();
@@ -200,13 +175,6 @@ public class MainActivity extends CollapsingToolbarBaseActivity
         mAvailable = true;
         mUnavailableText.setVisibility(View.GONE);
         mFilterChip.setEnabled(true);
-        mMasterSwitch.setEnabled(true);
-
-        mEnabled = state.getBoolean(ThermalServiceClient.KEY_ENABLED, false);
-        mUpdatingSwitch = true;
-        mMasterSwitch.setChecked(mEnabled);
-        mUpdatingSwitch = false;
-        updateListEnabledState();
 
         final String error = state.getString(ThermalServiceClient.KEY_ERROR, "");
         if (!error.isEmpty()) {
@@ -230,13 +198,7 @@ public class MainActivity extends CollapsingToolbarBaseActivity
         mAvailable = false;
         mUnavailableText.setVisibility(View.VISIBLE);
         mFilterChip.setEnabled(false);
-        mMasterSwitch.setEnabled(false);
         mAdapter.setItems(new ArrayList<>());
-    }
-
-    private void updateListEnabledState() {
-        mRecyclerView.setAlpha(mEnabled ? 1.0f : 0.4f);
-        mListBlocker.setVisibility(mEnabled ? View.GONE : View.VISIBLE);
     }
 
     private void loadApps() {
@@ -285,10 +247,20 @@ public class MainActivity extends CollapsingToolbarBaseActivity
 
     private void applyFilters() {
         final String query = mQuery.toLowerCase(Locale.ROOT);
+        final boolean categoryFilter = mFilter >= FILTER_GENERAL;
         final List<AppEntry> filtered = new ArrayList<>();
         for (AppEntry entry : mAllEntries) {
             if (mFilter == FILTER_MODIFIED && entry.overrideProfile == -1) {
                 continue;
+            }
+            if (categoryFilter) {
+                if (entry.stockGroup == null) {
+                    requestPolicy(entry);
+                    continue;
+                }
+                if (sectionOf(entry.stockGroup) != mFilter) {
+                    continue;
+                }
             }
             if (!query.isEmpty()
                     && !entry.label.toLowerCase(Locale.ROOT).contains(query)
@@ -300,10 +272,33 @@ public class MainActivity extends CollapsingToolbarBaseActivity
         mAdapter.setItems(filtered);
     }
 
+    private static int sectionOf(String stockGroup) {
+        switch (stockGroup) {
+            case "game":
+            case "game2":
+            case "yuanshen":
+            case "xingtie":
+                return FILTER_GAMING;
+            case "navigation":
+            case "camera":
+            case "evaluation":
+            case "huanji":
+            case "arvr":
+            case "demo":
+                return FILTER_OTHERS;
+            default:
+                // class0, video, unclassified and anything new all land in General.
+                return FILTER_GENERAL;
+        }
+    }
+
     private void showFilterPopup(View anchor) {
         final PopupMenu popup = new PopupMenu(this, anchor);
         popup.getMenu().add(0, FILTER_ALL, 0, R.string.filter_all_apps).setCheckable(true);
         popup.getMenu().add(0, FILTER_MODIFIED, 1, R.string.filter_modified).setCheckable(true);
+        popup.getMenu().add(0, FILTER_GENERAL, 2, R.string.section_general).setCheckable(true);
+        popup.getMenu().add(0, FILTER_GAMING, 3, R.string.section_gaming).setCheckable(true);
+        popup.getMenu().add(0, FILTER_OTHERS, 4, R.string.section_others).setCheckable(true);
         popup.getMenu().setGroupCheckable(0, true, true);
         popup.getMenu().findItem(mFilter).setChecked(true);
         popup.setOnMenuItemClickListener(item -> {
@@ -316,8 +311,25 @@ public class MainActivity extends CollapsingToolbarBaseActivity
     }
 
     private void updateFilterChipText() {
-        mFilterChip.setText(mFilter == FILTER_MODIFIED
-                ? R.string.filter_modified : R.string.filter_all_apps);
+        final int textRes;
+        switch (mFilter) {
+            case FILTER_MODIFIED:
+                textRes = R.string.filter_modified;
+                break;
+            case FILTER_GENERAL:
+                textRes = R.string.section_general;
+                break;
+            case FILTER_GAMING:
+                textRes = R.string.section_gaming;
+                break;
+            case FILTER_OTHERS:
+                textRes = R.string.section_others;
+                break;
+            default:
+                textRes = R.string.filter_all_apps;
+                break;
+        }
+        mFilterChip.setText(textRes);
     }
 
     @Override
@@ -346,6 +358,14 @@ public class MainActivity extends CollapsingToolbarBaseActivity
 
     @Override
     public void onPolicyNeeded(AppEntry entry) {
+        requestPolicy(entry);
+    }
+
+    private void requestPolicy(AppEntry entry) {
+        if (entry.policyRequested) {
+            return;
+        }
+        entry.policyRequested = true;
         mClient.getAppPolicy(entry.packageName, new ThermalServiceClient.PolicyCallback() {
             @Override
             public void onPolicy(Bundle policy) {
@@ -354,6 +374,10 @@ public class MainActivity extends CollapsingToolbarBaseActivity
                             ThermalServiceClient.KEY_STOCK_GROUP, "");
                     entry.overrideProfile = policy.getInt(
                             ThermalServiceClient.KEY_OVERRIDE_PROFILE, entry.overrideProfile);
+                }
+                if (mFilter >= FILTER_GENERAL) {
+                    applyFilters();
+                    return;
                 }
                 final int index = mAdapter.indexOf(entry.packageName);
                 if (index >= 0) {

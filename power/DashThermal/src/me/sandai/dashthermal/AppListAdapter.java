@@ -73,7 +73,6 @@ final class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.ViewHolde
         }
 
         if (entry.overrideProfile == -1 && entry.stockGroup == null && !entry.policyRequested) {
-            entry.policyRequested = true;
             mListener.onPolicyNeeded(entry);
         }
 
@@ -87,13 +86,16 @@ final class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.ViewHolde
 
     private static CharSequence buildSubtitle(View view, AppEntry entry) {
         if (entry.overrideProfile != -1) {
-            final int nameRes = ThermalProfiles.nameRes(entry.overrideProfile);
+            final int nameRes = ThermalProfiles.nameRes(
+                    ThermalProfiles.canon(entry.overrideProfile));
             return nameRes != 0 ? view.getContext().getString(nameRes)
                     : String.valueOf(entry.overrideProfile);
         }
         if (entry.stockGroup != null && !entry.stockGroup.isEmpty()) {
+            final int groupNameRes = ThermalProfiles.groupNameRes(entry.stockGroup);
             return view.getContext().getString(R.string.list_subtitle_auto_category,
-                    entry.stockGroup);
+                    groupNameRes != 0 ? view.getContext().getString(groupNameRes)
+                            : entry.stockGroup);
         }
         return view.getContext().getString(R.string.profile_auto);
     }

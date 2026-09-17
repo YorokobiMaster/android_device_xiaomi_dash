@@ -5,34 +5,47 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <string name="app_name">应用温控</string>
-    <string name="settings_summary">按应用选择温控档位</string>
+    <string name="app_name">应用调度</string>
+    <string name="settings_summary">按应用选择调度策略</string>
     <string name="action_search">搜索</string>
     <string name="search_apps_hint">搜索应用…</string>
     <string name="action_show_system">显示系统应用</string>
     <string name="filter_all_apps">全部应用</string>
     <string name="filter_modified">已修改</string>
-    <string name="master_switch_title">使用应用温控</string>
-    <string name="service_unavailable">温控服务不可用</string>
+    <string name="service_unavailable">调度服务不可用</string>
     <string name="save_failed">保存失败，请重试</string>
     <string name="last_error_format">最近错误：%1$s</string>
 
     <string name="profile_auto">自动</string>
-    <string name="profile_normal">普通</string>
-    <string name="profile_class0">Class 0</string>
-    <string name="profile_gaming">游戏</string>
-    <string name="profile_video">视频</string>
-    <string name="profile_performance">高性能</string>
-    <string name="profile_extreme">极致</string>
 
-    <string name="profile_auto_summary">按内置分类自动选择（选择即清除用户覆盖）</string>
-    <string name="profile_auto_summary_category">按分类使用 · %1$s</string>
-    <string name="profile_normal_summary">默认温控策略</string>
-    <string name="profile_class0_summary">固定使用 class0 温控策略</string>
-    <string name="profile_gaming_summary">基础游戏策略</string>
-    <string name="profile_video_summary">固定使用视频温控策略</string>
-    <string name="profile_performance_summary">固定使用 yuanshen 温控策略</string>
-    <string name="profile_extreme_summary">联动 GPU 频率与核心调度</string>
+    <string name="section_general">通用</string>
+    <string name="section_gaming">游戏</string>
+    <string name="section_others">其他</string>
+
+    <string name="profile_default">默认</string>
+    <string name="profile_everyday">日常应用</string>
+    <string name="profile_video">视频播放</string>
+    <string name="profile_standard">标准</string>
+    <string name="profile_enhanced">增强</string>
+    <string name="profile_extreme">极致</string>
+    <string name="profile_evaluation">跑分</string>
+    <string name="profile_navigation">导航</string>
+    <string name="profile_camera">相机/相册</string>
+    <string name="profile_transfer">换机</string>
+    <string name="profile_arvr">AR/VR</string>
+    <string name="profile_demo">Demo</string>
+
+    <string name="profile_default_summary">默认调度策略，适用于大部分应用</string>
+    <string name="profile_everyday_summary">为日常高频前台应用设计</string>
+    <string name="profile_video_summary">降低长时间视频播放的发热，并保持稳定</string>
+    <string name="profile_standard_summary">标准 CPU 与温度限制</string>
+    <string name="profile_enhanced_summary">提高 CPU 上限与降频温度阈值</string>
+    <string name="profile_extreme_summary">最宽松的 GPU 与温控工作范围</string>
+
+    <string name="category_gaming">游戏</string>
+    <string name="category_tencent">腾讯游戏</string>
+    <string name="category_mihoyo">米哈游游戏</string>
+    <string name="profile_unknown">未知策略（%1$d）</string>
 
     <string name="list_subtitle_auto_category">自动 · %1$s</string>
     <string name="detail_footer">手动档位不随性能模式切换，并优先于事件场景。</string>
