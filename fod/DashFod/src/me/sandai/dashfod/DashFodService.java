@@ -45,11 +45,6 @@ import vendor.xiaomi.hardware.fingerprintextension.IXiaomiFingerprint;
 /** Observes authentication in its owning process; never creates an authentication request. */
 public final class DashFodService extends SystemService {
     private static final String TAG = "DashFod";
-    private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
-    // Mirrors DozeTriggers.AUTH_UI_PULSE_ACTION; the receiver requires DEVICE_POWER, which
-    // system_server passes by uid.
-    private static final String ACTION_DOZE_PULSE_AUTH_UI =
-            "com.android.systemui.doze.pulse.auth";
     private static final long RETRY_MIN_MS = 1_000;
     private static final long RETRY_MAX_MS = 30_000;
     private Handler mHandler;
@@ -194,23 +189,8 @@ public final class DashFodService extends SystemService {
         mHandler.post(() -> {
             Log.i(TAG, "lifecycle edge=" + edge + " operation=" + operation);
             event.accept(operation);
-            if (operation == FodController.Operation.KEYGUARD_AUTH
-                    && ("FAILED".equals(edge) || "ERROR".equals(edge))) {
-                requestAuthUiPulse(edge);
-            }
             scheduleRetry();
         });
-    }
-
-    // A terminal keyguard failure while noninteractive can leave the touch firmware replaying
-    // a stale contact with no further framework signal. Only a display power cycle reaches the
-    // panel resume/firmware-reload path that clears it, so request an auth-UI doze pulse; the
-    // pulse also surfaces the failure the user could not see with the screen off.
-    private void requestAuthUiPulse(String edge) {
-        if (mPower.isInteractive()) return;
-        Intent intent = new Intent(ACTION_DOZE_PULSE_AUTH_UI).setPackage(SYSTEMUI_PACKAGE);
-        getContext().sendBroadcastAsUser(intent, UserHandle.SYSTEM);
-        Log.i(TAG, "requested auth UI pulse edge=" + edge);
     }
 
     private void onPolicyChanged() {
