@@ -27,15 +27,6 @@ permission: FingerprintManager's lockout-reset callback uses a wake lock.
 - Failed availability synchronization, arming or cleanup retries on the worker
   with 1–30 second backoff. Stable or policy-paused states do not poll. Vendor
   lookup is nonblocking; registration is never queued behind vendor IPC.
-- A terminal framework failure (FAILED or ERROR) on the keyguard operation
-  while noninteractive briefly raises the AOD doze dream via
-  `DreamManagerInternal` (OFF → DOZE → OFF, about five seconds). The display
-  power cycle reaches the touch panel resume/firmware-reload path that clears
-  a stale-contact replay the fingerprint events themselves cannot report; the
-  visible AOD also surfaces the failure with the screen off. This device does
-  not doze on screen-off, so pulsing through SystemUI's `DozeTriggers` is not
-  an option. Interactive failures, and failures while a dream is already
-  running, do not pulse.
 - Native mfp/touch still owns finger input. DashWake still owns wake gestures;
   the ambiguous FOD-motion sensor is not restored as a physical-finger trigger.
 

@@ -33,10 +33,8 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.service.dreams.DreamManagerInternal;
 import android.util.Log;
 
-import com.android.server.LocalServices;
 import com.android.server.SystemService;
 
 import java.util.NoSuchElementException;
@@ -47,8 +45,11 @@ import vendor.xiaomi.hardware.fingerprintextension.IXiaomiFingerprint;
 /** Observes authentication in its owning process; never creates an authentication request. */
 public final class DashFodService extends SystemService {
     private static final String TAG = "DashFod";
-    // How long the recovery doze dream stays up before the display drops back to OFF.
-    private static final long DOZE_PULSE_MS = 5_000;
+    private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
+    // Mirrors DozeTriggers.AUTH_UI_PULSE_ACTION; the receiver requires DEVICE_POWER, which
+    // system_server passes by uid.
+    private static final String ACTION_DOZE_PULSE_AUTH_UI =
+            "com.android.systemui.doze.pulse.auth";
     private static final long RETRY_MIN_MS = 1_000;
     private static final long RETRY_MAX_MS = 30_000;
     private Handler mHandler;
@@ -56,7 +57,6 @@ public final class DashFodService extends SystemService {
     private VendorClient mClient;
     private FingerprintManager mFingerprint;
     private PowerManager mPower;
-    private DreamManagerInternal mDreams;
     private int mUserId;
     private Boolean mKeyguardFodAvailable;
     private boolean mAvailabilityPending;
@@ -82,7 +82,6 @@ public final class DashFodService extends SystemService {
         mController = new FodController(mClient, message -> Log.i(TAG, message));
         mFingerprint = context.getSystemService(FingerprintManager.class);
         mPower = context.getSystemService(PowerManager.class);
-        mDreams = LocalServices.getService(DreamManagerInternal.class);
         mUserId = ActivityManager.getCurrentUser();
         mHandler.post(() -> {
             mController.onStartup();
@@ -197,7 +196,7 @@ public final class DashFodService extends SystemService {
             event.accept(operation);
             if (operation == FodController.Operation.KEYGUARD_AUTH
                     && ("FAILED".equals(edge) || "ERROR".equals(edge))) {
-                pulseDoze(edge);
+                requestAuthUiPulse(edge);
             }
             scheduleRetry();
         });
@@ -205,16 +204,13 @@ public final class DashFodService extends SystemService {
 
     // A terminal keyguard failure while noninteractive can leave the touch firmware replaying
     // a stale contact with no further framework signal. Only a display power cycle reaches the
-    // panel resume/firmware-reload path that clears it. This device never dozes on screen-off,
-    // so SystemUI's DozeTriggers are not listening; raise the AOD doze dream directly for a
-    // OFF -> DOZE -> OFF cycle. The visible AOD also surfaces the failure the user could not
-    // see with the screen off.
-    private void pulseDoze(String edge) {
-        if (mPower.isInteractive() || mDreams.isDreaming()) return;
-        mDreams.startDream(true /* doze */, "dash-fod auth " + edge);
-        mHandler.postDelayed(() -> mDreams.stopDream(false /* immediate */,
-                "dash-fod pulse done"), DOZE_PULSE_MS);
-        Log.i(TAG, "pulsed doze edge=" + edge);
+    // panel resume/firmware-reload path that clears it, so request an auth-UI doze pulse; the
+    // pulse also surfaces the failure the user could not see with the screen off.
+    private void requestAuthUiPulse(String edge) {
+        if (mPower.isInteractive()) return;
+        Intent intent = new Intent(ACTION_DOZE_PULSE_AUTH_UI).setPackage(SYSTEMUI_PACKAGE);
+        getContext().sendBroadcastAsUser(intent, UserHandle.SYSTEM);
+        Log.i(TAG, "requested auth UI pulse edge=" + edge);
     }
 
     private void onPolicyChanged() {
