@@ -45,6 +45,8 @@ import vendor.xiaomi.hardware.fingerprintextension.IXiaomiFingerprint;
 /** Observes authentication in its owning process; never creates an authentication request. */
 public final class DashFodService extends SystemService {
     private static final String TAG = "DashFod";
+    private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
+    private static final String ACTION_DOZE_PULSE = "com.android.systemui.doze.pulse";
     private static final long RETRY_MIN_MS = 1_000;
     private static final long RETRY_MAX_MS = 30_000;
     private Handler mHandler;
@@ -189,8 +191,18 @@ public final class DashFodService extends SystemService {
         mHandler.post(() -> {
             Log.i(TAG, "lifecycle edge=" + edge + " operation=" + operation);
             event.accept(operation);
+            if (operation == FodController.Operation.KEYGUARD_AUTH && "FAILED".equals(edge)) {
+                requestAodPulse();
+            }
             scheduleRetry();
         });
+    }
+
+    private void requestAodPulse() {
+        if (mPower.isInteractive()) return;
+        Intent intent = new Intent(ACTION_DOZE_PULSE).setPackage(SYSTEMUI_PACKAGE);
+        getContext().sendBroadcastAsUser(intent, UserHandle.SYSTEM);
+        Log.i(TAG, "requested AOD pulse after keyguard authentication failure");
     }
 
     private void onPolicyChanged() {
