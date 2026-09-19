@@ -1,0 +1,9 @@
+// Copyright (C) 2026 GitHub @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+aconfig_value_set {
+    name: "aconfig_value_set-dash-bp4a",
+    srcs: [
+        "*/Android.bp",
+    ],
+}

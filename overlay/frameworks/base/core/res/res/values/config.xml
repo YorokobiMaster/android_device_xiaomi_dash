@@ -47,6 +47,7 @@
 
     <!-- DashFod arms the fingerprint extension only after Doze is visible. -->
     <bool name="config_screen_off_udfps_enabled">true</bool>
+    <string name="config_dozeUdfpsLongPressSensorType" translatable="false">xiaomi.sensor.fod</string>
 
     <!-- Default the screen-off UDFPS switch on: a fresh flash should have
          working AOD fingerprint out of the box. AmbientDisplayConfiguration

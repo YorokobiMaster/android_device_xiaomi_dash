@@ -7,6 +7,9 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit_only.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, device/xiaomi/dash/device.mk)
 
+PRODUCT_RELEASE_CONFIG_MAPS += \
+    device/xiaomi/dash/release_config/release_config_map.textproto
+
 # dash builds are bleeding-edge; brand them as such.
 LINEAGE_BUILDTYPE := RAWHIDE
 

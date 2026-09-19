@@ -1,0 +1,10 @@
+// Copyright (C) 2026 GitHub @YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+aconfig_values {
+    name: "aconfig-values-dash-bp4a-com.android.systemui-all",
+    package: "com.android.systemui",
+    srcs: [
+        "*_flag_values.textproto",
+    ],
+}
