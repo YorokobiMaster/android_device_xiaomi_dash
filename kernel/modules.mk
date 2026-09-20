@@ -289,6 +289,14 @@ BOARD_VENDOR_KERNEL_MODULES := \
     $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/audio_ipi.ko \
     $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/backlight_cooling.ko \
     $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/binder_prio.ko \
+    $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/perf-actuator.ko \
+    $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/miicmpfilter.ko \
+    $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/millet_core.ko \
+    $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/millet_hs.ko \
+    $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/millet_sig.ko \
+    $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/millet_pkg.ko \
+    $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/binder_gki.ko \
+    $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/millet_binder.ko \
     $(DASH_KLEAF_OUT)/mgk_64_k66.user/net/bluetooth/bluetooth.ko \
     $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/board_temp.ko \
     $(DASH_KLEAF_OUT)/mgk_64_k66_customer_modules_install.user/bq25985_charger.ko \

@@ -233,3 +233,11 @@ mi_t1_gpio.ko
 unionpower.ko
 dio_dma_mapper.ko
 powersave.ko
+perf-actuator.ko
+miicmpfilter.ko
+millet_core.ko
+millet_hs.ko
+millet_sig.ko
+millet_pkg.ko
+binder_gki.ko
+millet_binder.ko
