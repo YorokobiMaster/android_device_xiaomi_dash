@@ -7,9 +7,9 @@
     <!-- The ring is controlled through DashLED, not Lineage's system lights. -->
     <integer name="config_deviceLightCapabilities">0</integer>
 
-    <!-- Check the proximity sensor before waking the screen. The panel sits
-         flush in the pocket and wake gestures handled by DashWake
-         otherwise fire on leg contact. -->
+    <!-- Check proximity for framework wake-key paths such as the KEY_WAKEUP
+         event emitted by double-tap. DashWake arbitrates pickup against the
+         Xiaomi pocket sensor in its own device-specific policy. -->
     <bool name="config_proximityCheckOnWake">true</bool>
 
     <!-- Ship it on: this is the behaviour stock users already expect. -->

@@ -6,8 +6,8 @@
 <resources>
     <string name="pickup_wake_title">Lift to wake</string>
     <string name="pickup_wake_summary">Wake the lock screen when you pick up the phone</string>
-    <string name="gaze_wake_title">Gaze to light</string>
-    <string name="gaze_wake_summary">Light the ambient display while you are looking at the phone</string>
+    <string name="gaze_wake_title">Gaze to wake</string>
+    <string name="gaze_wake_summary">Wake the lock screen when you look at the phone</string>
     <string name="putdown_sleep_title">Put down to sleep</string>
     <string name="putdown_sleep_summary">Turn the screen off when you put the phone back down after a lift to wake</string>
 </resources>

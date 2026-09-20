@@ -47,10 +47,12 @@
         <service
             android:name=".aov.DashAttentionService"
             android:exported="true"
-            android:permission="android.permission.BIND_ATTENTION_SERVICE">
+            android:permission="android.permission.BIND_ATTENTION_SERVICE"
+            android:process=":aov">
             <intent-filter>
                 <action android:name="android.service.attention.AttentionService" />
             </intent-filter>
         </service>
+
     </application>
 </manifest>

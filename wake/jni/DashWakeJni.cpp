@@ -78,13 +78,8 @@ bool setDoubleTapWake(bool enabled) {
               strerror(savedErrno));
         return false;
     }
-    if (request.data[0] != 0) {
-        ALOGE("Xiaomi touch mode %u failed with driver result %d", kDoubleTapMode,
-              request.data[0]);
-        return false;
-    }
-
-    ALOGI("Xiaomi touch mode %u set to %d", kDoubleTapMode, enabled);
+    // SET leaves the input payload unchanged; only ioctl reports acceptance.
+    ALOGI("Xiaomi touch mode %u request accepted: %d", kDoubleTapMode, enabled);
     return true;
 }
 

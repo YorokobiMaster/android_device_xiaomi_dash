@@ -10,27 +10,14 @@ import android.os.HandlerThread;
 import android.service.attention.AttentionService;
 import android.util.Log;
 
-/**
- * AOSP adaptive-sleep backend. Mirrors stock: the first AOV frame after stream-up
- * decides the verdict instead of waiting out the framework's 2 s pre-dim budget.
- */
+/** AOV-backed implementation of AOSP Screen attention. */
 public final class DashAttentionService extends AttentionService {
     private static final String TAG = "DashAttention";
-    // Report TIMED_OUT ourselves when the AOV pipeline delivers no frame at all,
-    // staying inside the 2 s budget AttentionManagerService grants us.
-    private static final long NO_FRAME_TIMEOUT_MS = 1_500;
 
     private HandlerThread mWorkerThread;
     private Handler mWorker;
     private MtkAovClient mClient;
     private AttentionCallback mPending;
-
-    private final Runnable mNoFrameTimeout = () -> {
-        if (mPending != null) {
-            Log.w(TAG, "No AOV frame within " + NO_FRAME_TIMEOUT_MS + " ms");
-            fail(ATTENTION_FAILURE_TIMED_OUT);
-        }
-    };
 
     @Override
     public void onCreate() {
@@ -42,8 +29,13 @@ public final class DashAttentionService extends AttentionService {
 
     @Override
     public void onDestroy() {
-        mWorker.runWithScissors(this::stopCheck, 2_000);
-        mWorkerThread.quitSafely();
+        if (mWorker != null) {
+            mWorker.removeCallbacksAndMessages(null);
+            mWorker.runWithScissors(this::stopCheck, 2_000);
+        }
+        if (mWorkerThread != null) {
+            mWorkerThread.quitSafely();
+        }
         super.onDestroy();
     }
 
@@ -54,69 +46,76 @@ public final class DashAttentionService extends AttentionService {
 
     @Override
     public void onCancelAttentionCheck(AttentionCallback callback) {
-        // AttentionManagerService only keeps one active check; cancel whatever is pending.
-        mWorker.post(() -> {
-            if (mPending != null) {
-                fail(ATTENTION_FAILURE_CANCELLED);
-            }
-        });
+        mWorker.post(() -> cancelCheck(callback));
     }
 
     private void startCheck(AttentionCallback callback) {
-        stopCheck();
+        if (mPending != null) {
+            finishFailure(ATTENTION_FAILURE_PREEMPTED);
+        }
+
         mPending = callback;
         MtkAovClient client = new MtkAovClient(mWorker, new MtkAovClient.Listener() {
             @Override
             public void onPresenceDetected(MtkAovClient source) {
                 if (source == mClient) {
-                    complete(ATTENTION_SUCCESS_PRESENT);
-                }
-            }
-
-            @Override
-            public void onNoPresenceDetected(MtkAovClient source) {
-                if (source == mClient) {
-                    complete(ATTENTION_SUCCESS_ABSENT);
+                    finishPresent();
                 }
             }
 
             @Override
             public void onServiceDied(MtkAovClient source) {
                 if (source == mClient) {
-                    fail(ATTENTION_FAILURE_UNKNOWN);
+                    finishFailure(ATTENTION_FAILURE_UNKNOWN);
                 }
             }
         }, 0);
         mClient = client;
         if (!client.start()) {
-            fail(ATTENTION_FAILURE_UNKNOWN);
+            finishFailure(ATTENTION_FAILURE_UNKNOWN);
+        }
+    }
+
+    private void cancelCheck(AttentionCallback callback) {
+        if (mPending == null) {
             return;
         }
-        mWorker.postDelayed(mNoFrameTimeout, NO_FRAME_TIMEOUT_MS);
+        // AttentionService wraps the same Binder callback in a new Java object for cancellation,
+        // so object identity cannot be used to match it here. The framework permits one request.
+        finishFailure(ATTENTION_FAILURE_CANCELLED);
     }
 
-    private void complete(int result) {
+    private void finishPresent() {
         AttentionCallback callback = detachCheck();
-        Log.i(TAG, "verdict=" + result);
-        if (callback != null) {
-            callback.onSuccess(result, System.currentTimeMillis());
+        if (callback == null) {
+            return;
         }
-        closeClient();
+        try {
+            callback.onSuccess(ATTENTION_SUCCESS_PRESENT, System.currentTimeMillis());
+            Log.i(TAG, "attention present");
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Unable to report attention result", e);
+        } finally {
+            closeClient();
+        }
     }
 
-    private void fail(int error) {
+    private void finishFailure(int error) {
         AttentionCallback callback = detachCheck();
-        Log.i(TAG, "fail=" + error);
-        if (callback != null) {
+        if (callback == null) {
+            return;
+        }
+        try {
             callback.onFailure(error);
+            Log.i(TAG, "attention failure=" + error);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Unable to report attention failure", e);
+        } finally {
+            closeClient();
         }
-        closeClient();
     }
 
-    // Deliver the verdict before touching the HAL: close() transacts vendor
-    // STOP/DISCONNECT synchronously and must not eat the framework's 2 s budget.
     private AttentionCallback detachCheck() {
-        mWorker.removeCallbacks(mNoFrameTimeout);
         AttentionCallback callback = mPending;
         mPending = null;
         return callback;
@@ -130,7 +129,7 @@ public final class DashAttentionService extends AttentionService {
     }
 
     private void stopCheck() {
-        detachCheck();
+        mPending = null;
         closeClient();
     }
 }

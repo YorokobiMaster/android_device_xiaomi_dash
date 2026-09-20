@@ -31,17 +31,11 @@
          (doze_enable/doze_disable, AOD brightness tables); present it
          through SystemUI's doze service. -->
     <bool name="config_dozeAlwaysOnDisplayAvailable">true</bool>
-    <string name="config_dozeComponent" translatable="false">com.android.systemui/com.android.systemui.doze.DozeService</string>
 
     <!-- Whether device supports double tap to wake -->
     <bool name="config_supportDoubleTapWake">true</bool>
 
-    <!-- DashWake owns pickup wake and its setting; do not expose the Doze gesture. -->
-    <bool name="config_dozePulsePickup">false</bool>
-
-    <!-- DashWake backs adaptive sleep with its AOV attention service; this both
-         wires the framework to it and lights up the stock Screen attention
-         switch under Settings > Display > Screen timeout. -->
+    <!-- AOSP Screen attention, backed by dash's front-camera AOV pipeline. -->
     <string name="config_defaultAttentionService" translatable="false">me.sandai.dashwake/me.sandai.dashwake.aov.DashAttentionService</string>
     <bool name="config_adaptive_sleep_available">true</bool>
 

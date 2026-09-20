@@ -25,7 +25,8 @@ final class WakeSettings {
 
     static void migrate(ContentResolver resolver, int userId) {
         migrateKey(resolver, userId, Settings.Secure.DOZE_PICK_UP_GESTURE, PICKUP_ENABLED);
-        migrateKey(resolver, userId, "dash_smart_aod_enabled", GAZE_ENABLED);
+        // Gaze-to-wake is not currently exposed. Do not create or migrate its setting.
+        // migrateKey(resolver, userId, "dash_smart_aod_enabled", GAZE_ENABLED);
     }
 
     private static void migrateKey(ContentResolver resolver, int userId,

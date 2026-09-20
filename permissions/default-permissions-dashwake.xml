@@ -4,8 +4,8 @@
 
      SPDX-License-Identifier: Apache-2.0
 -->
-<!-- DashWake is the attention service backend; adaptive sleep needs its camera
-     grant in place out of the box or the Settings switch stays disabled. -->
+<!-- Settings requires the configured attention service to hold CAMERA before
+     it enables the standard Screen attention switch. -->
 <exceptions>
     <exception package="me.sandai.dashwake">
         <permission name="android.permission.CAMERA" fixed="true" />
