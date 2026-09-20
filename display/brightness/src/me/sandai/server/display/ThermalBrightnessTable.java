@@ -60,14 +60,22 @@ final class ThermalBrightnessTable {
     float cap(int condition, float lux, float temperature) {
         if (!Float.isFinite(lux) || lux < 0 || !Float.isFinite(temperature)) return Float.NaN;
         List<Lux> bands = mConditions.getOrDefault(condition, mConditions.get(0));
+        Lux highest = null;
         for (Lux band : bands) {
+            if (highest == null || band.max > highest.max) highest = band;
             if (lux < band.min || lux >= band.max) continue;
-            if (temperature < band.temperatures.get(0).min) return Float.POSITIVE_INFINITY;
-            for (Temperature t : band.temperatures) {
-                if (temperature >= t.min && temperature < t.max) return t.nits;
-            }
-            // Out-of-table input is unavailable, never permission to remove a cap.
-            return Float.NaN;
+            return temperatureCap(band, temperature);
+        }
+        // Stock selects the highest configured lux band for values above its final maximum.
+        return highest != null && lux >= highest.max
+                ? temperatureCap(highest, temperature) : Float.NaN;
+    }
+
+    private static float temperatureCap(Lux band, float temperature) {
+        // Below the configured minimum is an uncapped/no-table state, not an infinite table cap.
+        if (temperature < band.temperatures.get(0).min) return Float.NaN;
+        for (Temperature t : band.temperatures) {
+            if (temperature >= t.min && temperature < t.max) return t.nits;
         }
         return Float.NaN;
     }

@@ -61,7 +61,9 @@
          Stock 4932/3946 integer rates use a 14-bit scale, not AOSP's 255. -->
     <screenBrightnessRampFastDecrease>0.3010011</screenBrightnessRampFastDecrease>
     <screenBrightnessRampFastIncrease>0.3010011</screenBrightnessRampFastIncrease>
-    <screenBrightnessRampSlowDecrease>0.24081309</screenBrightnessRampSlowDecrease>
+    <!-- Generic fallback for declined/non-device paths; the device automatic curve is supplied
+         by config_deviceBrightnessRampPolicy. -->
+    <screenBrightnessRampSlowDecrease>0.042</screenBrightnessRampSlowDecrease>
     <screenBrightnessRampSlowIncrease>0.24081309</screenBrightnessRampSlowIncrease>
     <ambientLightHorizonLong>1500</ambientLightHorizonLong>
     <ambientLightHorizonShort>1000</ambientLightHorizonShort>

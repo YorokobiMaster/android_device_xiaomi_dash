@@ -6,6 +6,9 @@
          Product RRO overrides retained vendor curves. Calibration lives in DDC. -->
     <string name="config_deviceAmbientPolicy" translatable="false">me.sandai.server.display.DashAmbientPolicy</string>
     <string name="config_deviceBrightnessPolicy" translatable="false">me.sandai.server.display.DashBrightnessPolicy</string>
+    <string name="config_deviceBrightnessRampPolicy" translatable="false">me.sandai.server.display.DashBrightnessRampPolicy</string>
+    <string name="config_deviceBrightnessCurvePolicy" translatable="false">me.sandai.server.display.DashBrightnessCurvePolicy</string>
+    <string name="config_deviceShortTermModelPolicy" translatable="false">me.sandai.server.display.DashShortTermModelPolicy</string>
     <!-- Stock subscribes to tsl2525_als, the standard compensated light sensor. -->
     <string name="config_displayLightSensorType" translatable="false">android.sensor.light</string>
     <bool name="config_automatic_brightness_available">true</bool>

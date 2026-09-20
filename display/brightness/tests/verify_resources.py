@@ -22,7 +22,10 @@ def main():
     assert all(a <= b for a, b in zip(nits, nits[1:]))
     assert (lux[0], lux[-1], nits[0], nits[-1]) == (0, 100000, 3.5, 3500)
     for name, impl in (("config_deviceAmbientPolicy", "DashAmbientPolicy"),
-                       ("config_deviceBrightnessPolicy", "DashBrightnessPolicy")):
+                       ("config_deviceBrightnessPolicy", "DashBrightnessPolicy"),
+                       ("config_deviceBrightnessRampPolicy", "DashBrightnessRampPolicy"),
+                       ("config_deviceBrightnessCurvePolicy", "DashBrightnessCurvePolicy"),
+                       ("config_deviceShortTermModelPolicy", "DashShortTermModelPolicy")):
         assert resources[name].text == f"me.sandai.server.display.{impl}"
     assert resources["config_displayLightSensorType"].text == "android.sensor.light"
     assert "config_autoBrightnessLcdBacklightValues" not in resources
@@ -42,7 +45,7 @@ def main():
     assert ddc.findtext("ambientLightHorizonLong") == "1500"
     assert ddc.findtext("ambientLightHorizonShort") == "1000"
     assert ddc.findtext("screenBrightnessRampFastIncrease") == "0.3010011"
-    assert ddc.findtext("screenBrightnessRampSlowDecrease") == "0.24081309"
+    assert ddc.findtext("screenBrightnessRampSlowDecrease") == "0.042"
     thermal = ET.parse(config / "multi_factor_thermal_brightness_control.xml")
     assert thermal.getroot().tag == "thermal-brightness-config"
     assert thermal.find("thermal-condition-item[identifier='0']") is not None

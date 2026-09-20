@@ -5,6 +5,7 @@ package me.sandai.server.display;
 
 import android.content.Context;
 import android.os.Binder;
+import android.os.FileObserver;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -20,19 +21,22 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.NoSuchElementException;
+import java.util.function.Supplier;
 
 import vendor.xiaomi.hardware.displayfeature_aidl.IDisplayFeature;
 import vendor.xiaomi.hardware.displayfeature_aidl.IDisplayFeatureCallback;
 
-/** One ID-0 callback owner. DPC remains the only framework brightness writer. */
+/** One ID-0 callback owner. DPC remains the only framework brightness writer.
+ *
+ * Thermal sysfs observation runs on its own thread; HAL Binder calls and gray callbacks run on a
+ * dedicated worker, so a stalled HAL cannot stop thermal sampling.
+ */
 public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     private static final String TAG = "DashBrightnessPolicy";
-    private static final String THERMAL = "/sys/class/thermal/thermal_message/";
+    private static final String THERMAL = "/sys/class/thermal/thermal_message";
     private static final String TABLE =
             "/product/etc/displayconfig/multi_factor_thermal_brightness_control.xml";
-    // Local polling/health bounds, not claimed to be stock native notification timings.
-    private static final long POLL_MS = 1000;
-    private static final long INPUT_LEASE_MS = 5000;
+    private static final long RECONNECT_MS = 1000;
     private static final int DISPLAY_STATE_NOTIFY = 13;
     private static final int DISPLAY_STATE_OFF = 0;
     private static final int DISPLAY_STATE_ON = 1;
@@ -40,25 +44,31 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     private static final int DISPLAY_FEATURE_COOKIE = 255;
     private final Handler mDisplayHandler;
     private final Runnable mChanged;
+    private final Supplier<IBinder> mServiceLookup;
     private HandlerThread mThread;
     private Handler mWorker;
+    private HandlerThread mPollThread;
+    private volatile Handler mPoller;
     private boolean mInteractive;
     private boolean mAutomatic;
-    private boolean mStopped;
+    private boolean mHdrLayerPresent;
+    private volatile boolean mStopped;
     private float mLux;
     private int mGeneration;
-    private Inputs mInputs;
-    private final Runnable mExpire;
+    private volatile ThermalCaps.Inputs mThermal = ThermalCaps.Inputs.EMPTY;
+    private volatile HalInputs mHal = HalInputs.IDLE;
+    private final Runnable mReconnect = this::reconnect;
 
-    // Worker-owned fields, never used directly by the display or Binder threads.
+    private record HalInputs(boolean callbackRegistered, boolean displayStateSynced,
+            boolean histogramEnabled, int gray, long lastGrayCallbackUptimeMillis,
+            long grayCallbackCount) {
+        static final HalInputs IDLE = new HalInputs(false, false, false,
+                ContentBrightness.RESET_GRAY, -1, 0);
+    }
+
     private boolean mRunning;
-    private boolean mWorkerAutomatic;
+    private boolean mWorkerHistogramEligible;
     private int mWorkerGeneration;
-    private ThermalBrightnessTable mTable;
-    private float mTemperature = Float.NaN;
-    private float mSafety = Float.NaN;
-    private Integer mCondition;
-    private int mGray = -1;
     private IDisplayFeature mRemote;
     private IBinder mBinder;
     private IBinder.DeathRecipient mDeath;
@@ -67,103 +77,189 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     private boolean mDisplayStateSynced;
     private boolean mHistogramEnabled;
     private volatile long mHistogramGeneration;
+    private int mGray = ContentBrightness.RESET_GRAY;
     private long mGrayCallbackCount;
     private long mLastGrayCallbackUptimeMillis;
-    private final Runnable mPoll = this::poll;
 
-    private record Inputs(ThermalBrightnessTable table, float temperature, float safety,
-            Integer condition, int gray, boolean callbackRegistered,
-            boolean displayStateSynced, boolean histogramEnabled, long grayCallbackCount,
-            long lastGrayCallbackUptimeMillis) { }
+    private volatile boolean mThermalStarted;
+    private ThermalBrightnessTable mTable;
+    private float mTemperature = Float.NaN;
+    private volatile float mDisplayTemperature = Float.NaN;
+    private float mSafety = Float.NaN;
+    private Integer mCondition;
+    private final ThermalNodeObserver mBoardSensorTempObserver =
+            new ThermalNodeObserver("board_sensor_temp");
+    private final ThermalNodeObserver mSconfigObserver = new ThermalNodeObserver("sconfig");
+    private final ThermalNodeObserver mThermalMaxBrightnessObserver =
+            new ThermalNodeObserver("thermal_max_brightness");
+    private final ThermalNodeObserver mDisplayThermTempObserver =
+            new ThermalNodeObserver("display_therm_temp");
+
+    private final class ThermalNodeObserver extends FileObserver {
+        private final String mNode;
+
+        ThermalNodeObserver(String node) {
+            super(THERMAL + "/" + node, FileObserver.MODIFY);
+            mNode = node;
+        }
+
+        @Override
+        public void onEvent(int event, String path) {
+            if ((event & FileObserver.MODIFY) == 0) return;
+            Handler poller = mPoller;
+            if (poller != null) poller.post(() -> {
+                if (mStopped || !mThermalStarted) return;
+                readThermalNode(mNode);
+            });
+        }
+    }
 
     public DashBrightnessPolicy(Context context, Handler handler, Runnable onChanged) {
+        this(handler, onChanged,
+                () -> ServiceManager.checkService(IDisplayFeature.DESCRIPTOR + "/default"));
+    }
+
+    /** Test seam: the service lookup is the only injectable dependency. */
+    DashBrightnessPolicy(Handler handler, Runnable onChanged, Supplier<IBinder> serviceLookup) {
         mDisplayHandler = handler;
         mChanged = onChanged;
-        mExpire = () -> {
-            mInputs = null;
-            mChanged.run();
-        };
+        mServiceLookup = serviceLookup;
     }
 
     @Override
-    public void update(boolean interactive, boolean automatic, float ambientLux) {
+    public void update(boolean interactive, boolean automatic, float ambientLux,
+            boolean hdrLayerPresent) {
         if (mStopped) return;
         mAutomatic = automatic;
+        mHdrLayerPresent = hdrLayerPresent;
         mLux = automatic ? ambientLux : 6000;
+        ensureThermalObserver();
+        final boolean histogramEligible = ContentBrightness.isSamplingEligible(
+                interactive, automatic, ambientLux, hdrLayerPresent);
         if (mInteractive == interactive) {
             final int generation = mGeneration;
             if (mWorker != null) {
                 mWorker.post(() -> {
                     if (!mRunning || mWorkerGeneration != generation) return;
-                    mWorkerAutomatic = automatic;
-                    setHistogramEnabled(automatic);
+                    mWorkerHistogramEligible = histogramEligible;
+                    setHistogramEnabled(histogramEligible);
                 });
             }
             return;
         }
         mInteractive = interactive;
-        mInputs = null;
-        mDisplayHandler.removeCallbacks(mExpire);
+        mHal = HalInputs.IDLE;
         final int generation = ++mGeneration;
-        if (mWorker == null && interactive) {
-            mThread = new HandlerThread(TAG);
-            mThread.start();
-            mWorker = new Handler(mThread.getLooper());
+        if (interactive) {
+            if (mThread == null) {
+                mThread = new HandlerThread(TAG);
+                mThread.start();
+                mWorker = new Handler(mThread.getLooper());
+            }
         }
         if (mWorker == null) return;
         mWorker.post(() -> {
             mRunning = interactive;
-            mWorkerAutomatic = automatic;
+            mWorkerHistogramEligible = histogramEligible;
             mWorkerGeneration = generation;
-            mWorker.removeCallbacks(mPoll);
+            mWorker.removeCallbacks(mReconnect);
             if (!interactive) {
                 setHistogramEnabled(false);
                 notifyDisplayOff();
             }
             disconnect();
-            mTemperature = mSafety = Float.NaN;
-            mCondition = null;
-            if (interactive) poll();
+            if (interactive) connect();
         });
     }
 
     @Override
     public Limits getLimits() {
-        Inputs input = mInputs;
-        if (!mInteractive || input == null) return Limits.UNAVAILABLE;
-        float tableCap = input.table == null ? Float.NaN : input.table.cap(
-                input.condition == null ? 0 : input.condition, mLux, input.temperature);
-        float thermal = tableCap;
-        // Even an incomplete sample must preserve any valid tighter safety cap.
-        if (Float.isFinite(input.safety) && input.safety > 0) {
-            thermal = Float.isNaN(thermal) ? input.safety : Math.min(thermal, input.safety);
-        }
-        float sdr = ContentBrightness.sdrCap(mLux, input.gray);
-        // Stock HDR OPR is disabled and its arrays are empty. Keep HDR in normal range;
-        // no invented peak-video/app classification or BCBC cloud app allowlist.
-        // Until that full boundary is recovered, do not authorize HBM on either channel.
-        return new Limits(thermal, sdr, Float.NaN, false);
+        if (!mInteractive) return Limits.UNAVAILABLE;
+        HalInputs hal = mHal;
+        int gray = hal.gray();
+        float sdr = mAutomatic && !mHdrLayerPresent
+                ? ContentBrightness.sdrCap(mLux, gray) : Float.NaN;
+        float thermal = resolveThermal(mThermal);
+        return new Limits(thermal, sdr,
+                HdrBrightness.cap(mAutomatic, mLux, gray));
     }
 
-    private void poll() {
-        if (!mRunning) return;
+    private float resolveThermal(ThermalCaps.Inputs inputs) {
+        Integer condition = HdrBrightness.thermalCondition(
+                mHdrLayerPresent, inputs.condition());
+        ThermalCaps.Inputs effective = new ThermalCaps.Inputs(inputs.table(),
+                inputs.temperature(), inputs.safety(), condition);
+        return ThermalCaps.resolve(effective, mLux);
+    }
+
+    private void ensureThermalObserver() {
+        if (mPoller != null) return;
+        mPollThread = new HandlerThread(TAG + "Thermal");
+        mPollThread.start();
+        mPoller = new Handler(mPollThread.getLooper());
+        mPoller.post(this::startThermalObservation);
+    }
+
+    private void startThermalObservation() {
+        if (mStopped || mThermalStarted) return;
+        mThermalStarted = true;
         if (mTable == null) {
             try (FileInputStream input = new FileInputStream(TABLE)) {
                 mTable = new ThermalBrightnessTable(input);
             } catch (Exception e) {
-                Slog.w(TAG, "Thermal table unavailable; HBM disabled", e);
+                Slog.w(TAG, "Thermal table unavailable; thermal cap unavailable", e);
             }
         }
-        mTemperature = readNumber("board_sensor_temp") / 1000;
-        mSafety = readNumber("thermal_max_brightness");
-        try {
-            mCondition = Integer.valueOf(Files.readString(Path.of(THERMAL, "sconfig")).trim());
-        } catch (Exception e) {
-            mCondition = null;
+        mBoardSensorTempObserver.startWatching();
+        mSconfigObserver.startWatching();
+        mThermalMaxBrightnessObserver.startWatching();
+        mDisplayThermTempObserver.startWatching();
+        readThermalNode("board_sensor_temp", false);
+        readThermalNode("sconfig", false);
+        readThermalNode("thermal_max_brightness", false);
+        readThermalNode("display_therm_temp", false);
+        publishThermal();
+    }
+
+    private void readThermalNode(String node) {
+        readThermalNode(node, true);
+    }
+
+    private void readThermalNode(String node, boolean publish) {
+        switch (node) {
+            case "board_sensor_temp": {
+                float raw = readNumber(node);
+                if (!Float.isFinite(raw)) return;
+                float temperature = raw / 1000;
+                if (ThermalCaps.equivalentTemperature(mTemperature, temperature)) return;
+                mTemperature = temperature;
+                break;
+            }
+            case "thermal_max_brightness": {
+                float safety = readNumber(node);
+                if (!Float.isFinite(safety)) return;
+                mSafety = safety > 0 ? safety : Float.NaN;
+                break;
+            }
+            case "display_therm_temp": {
+                float temperature = readNumber(node);
+                if (!Float.isFinite(temperature)) return;
+                mDisplayTemperature = temperature;
+                return;
+            }
+            case "sconfig": {
+                try {
+                    mCondition = Integer.valueOf(
+                            Files.readString(Path.of(THERMAL, node)).trim());
+                } catch (Exception e) {
+                    return;
+                }
+                break;
+            }
+            default:
+                return;
         }
-        publish();
-        if (mRemote == null) connect();
-        if (mRunning) mWorker.postDelayed(mPoll, POLL_MS);
+        if (publish) publishThermal();
     }
 
     private static float readNumber(String node) {
@@ -176,28 +272,32 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
     }
 
     private void connect() {
-        IBinder binder = ServiceManager.checkService(IDisplayFeature.DESCRIPTOR + "/default");
-        if (binder == null) return;
+        IBinder binder = mServiceLookup.get();
+        if (binder == null) {
+            scheduleReconnect();
+            return;
+        }
         final IDisplayFeature remote = IDisplayFeature.Stub.asInterface(Binder.allowBlocking(binder));
         final IBinder.DeathRecipient death = () -> mWorker.post(() -> {
             if (mBinder != binder) return;
             disconnect();
-            publish();
+            publishHal();
+            scheduleReconnect();
         });
         final IDisplayFeatureCallback callback = new IDisplayFeatureCallback.Stub() {
             @Override
             public void displayfeatureInfoChanged(int caseId, int value,
                     float red, float green, float blue) {
-                if (caseId != 95000) return;
+                if (caseId != 95000 || !ContentBrightness.isValidGray(value)) return;
                 final long histogramGeneration = mHistogramGeneration;
                 mWorker.post(() -> {
                     if (!mRunning || mCallback != this || mBinder != binder
                             || !mHistogramEnabled
                             || mHistogramGeneration != histogramGeneration) return;
-                    mGray = value >= 0 && value <= 255 ? value : -1;
+                    mGray = value;
                     mGrayCallbackCount++;
                     mLastGrayCallbackUptimeMillis = SystemClock.uptimeMillis();
-                    publish();
+                    publishHal();
                 });
             }
             @Override
@@ -216,28 +316,47 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
             remote.setFeature(0, DISPLAY_STATE_NOTIFY, DISPLAY_STATE_ON,
                     DISPLAY_FEATURE_COOKIE);
             mDisplayStateSynced = true;
-            setHistogramEnabled(mWorkerAutomatic);
-            publish();
+            setHistogramEnabled(mWorkerHistogramEligible);
+            publishHal();
         } catch (RemoteException | RuntimeException e) {
             Slog.w(TAG, "DisplayFeature setup failed", e);
             disconnect();
-            publish();
+            publishHal();
+            scheduleReconnect();
         }
     }
 
+    private void scheduleReconnect() {
+        if (!mRunning || mRemote != null) return;
+        mWorker.removeCallbacks(mReconnect);
+        mWorker.postDelayed(mReconnect, RECONNECT_MS);
+    }
+
+    private void reconnect() {
+        if (!mRunning || mRemote != null) return;
+        connect();
+    }
+
     private void setHistogramEnabled(boolean enabled) {
-        if (mRemote == null || mHistogramEnabled == enabled) return;
+        if (mRemote == null) {
+            if (!enabled) mGray = ContentBrightness.RESET_GRAY;
+            return;
+        }
+        if (mHistogramEnabled == enabled) {
+            if (!enabled) mGray = ContentBrightness.RESET_GRAY;
+            return;
+        }
         mHistogramGeneration++;
         try {
-            mRemote.setFeature(0, HIST_GRAY_STATE, enabled ? 1 : 0,
-                    DISPLAY_FEATURE_COOKIE);
+            mRemote.setFeature(0, HIST_GRAY_STATE, enabled ? 1 : 0, DISPLAY_FEATURE_COOKIE);
             mHistogramEnabled = enabled;
-            if (!enabled) mGray = -1;
-            publish();
+            if (!enabled) mGray = ContentBrightness.RESET_GRAY;
+            publishHal();
         } catch (RemoteException | RuntimeException e) {
             Slog.w(TAG, "DisplayFeature grayscale sampling update failed", e);
             disconnect();
-            publish();
+            publishHal();
+            scheduleReconnect();
         }
     }
 
@@ -261,7 +380,7 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
         mBinder = null;
         mCallback = null;
         mDeath = null;
-        mGray = -1;
+        mGray = ContentBrightness.RESET_GRAY;
         mHistogramGeneration++;
         boolean histogramEnabled = mHistogramEnabled;
         mCallbackRegistered = false;
@@ -287,17 +406,38 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
         } catch (NoSuchElementException ignored) { }
     }
 
-    private void publish() {
+    private void publishHal() {
         final int generation = mWorkerGeneration;
-        final Inputs input = new Inputs(mTable, mTemperature, mSafety, mCondition, mGray,
-                mCallbackRegistered, mDisplayStateSynced, mHistogramEnabled,
-                mGrayCallbackCount, mLastGrayCallbackUptimeMillis);
+        final HalInputs inputs = new HalInputs(mCallbackRegistered, mDisplayStateSynced,
+                mHistogramEnabled, mGray, mLastGrayCallbackUptimeMillis, mGrayCallbackCount);
         mDisplayHandler.post(() -> {
             if (mStopped || !mInteractive || generation != mGeneration) return;
-            mInputs = input;
-            mDisplayHandler.removeCallbacks(mExpire);
-            mDisplayHandler.postDelayed(mExpire, INPUT_LEASE_MS);
-            mChanged.run();
+            boolean limitsChanged = contentLimitsChanged(mHal, inputs);
+            mHal = inputs;
+            if (limitsChanged) mChanged.run();
+        });
+    }
+
+    private boolean contentLimitsChanged(HalInputs before, HalInputs after) {
+        float beforeSdr = mAutomatic && !mHdrLayerPresent
+                ? ContentBrightness.sdrCap(mLux, before.gray()) : Float.NaN;
+        float afterSdr = mAutomatic && !mHdrLayerPresent
+                ? ContentBrightness.sdrCap(mLux, after.gray()) : Float.NaN;
+        float beforeHdr = HdrBrightness.cap(mAutomatic, mLux, before.gray());
+        float afterHdr = HdrBrightness.cap(mAutomatic, mLux, after.gray());
+        return Float.compare(beforeSdr, afterSdr) != 0
+                || Float.compare(beforeHdr, afterHdr) != 0;
+    }
+
+    private void publishThermal() {
+        final ThermalCaps.Inputs inputs = new ThermalCaps.Inputs(mTable, mTemperature,
+                mSafety, mCondition);
+        mDisplayHandler.post(() -> {
+            if (mStopped) return;
+            float before = resolveThermal(mThermal);
+            float after = resolveThermal(inputs);
+            mThermal = inputs;
+            if (!ThermalCaps.sameCap(before, after)) mChanged.run();
         });
     }
 
@@ -307,23 +447,51 @@ public final class DashBrightnessPolicy implements DeviceBrightnessPolicy {
         mStopped = true;
         mInteractive = false;
         mAutomatic = false;
-        mInputs = null;
+        mHdrLayerPresent = false;
+        mThermal = ThermalCaps.Inputs.EMPTY;
+        mHal = HalInputs.IDLE;
         mGeneration++;
-        mDisplayHandler.removeCallbacks(mExpire);
         if (mWorker != null) mWorker.post(() -> {
             mRunning = false;
-            mWorkerAutomatic = false;
-            mWorker.removeCallbacks(mPoll);
+            mWorkerHistogramEligible = false;
+            mWorker.removeCallbacks(mReconnect);
             // Policy disposal does not imply that the physical display is off.
             disconnect();
             mThread.quitSafely();
+        });
+        if (mPoller != null) mPoller.post(() -> {
+            mBoardSensorTempObserver.stopWatching();
+            mSconfigObserver.stopWatching();
+            mThermalMaxBrightnessObserver.stopWatching();
+            mDisplayThermTempObserver.stopWatching();
+            mPollThread.quitSafely();
         });
     }
 
     @Override
     public void dump(PrintWriter writer) {
+        ThermalCaps.Inputs thermal = mThermal;
+        HalInputs hal = mHal;
+        long now = SystemClock.uptimeMillis();
         writer.println("DashBrightnessPolicy: interactive=" + mInteractive + " auto=" + mAutomatic
-                + " lux=" + mLux + " inputs=" + mInputs + " limits=" + getLimits());
-        writer.println("  HDR OPR/peak and BCBC disabled: full applicability contract unavailable");
+                + " lux=" + mLux + " hdrLayerPresent=" + mHdrLayerPresent
+                + " limits=" + getLimits());
+        writer.println("  thermal: temperature=" + thermal.temperature() + " safety="
+                + thermal.safety() + " displayTemperature=" + mDisplayTemperature
+                + " condition=" + thermal.condition()
+                + " effectiveCondition="
+                + HdrBrightness.thermalCondition(mHdrLayerPresent, thermal.condition()));
+        writer.println("  hal: callbackRegistered=" + hal.callbackRegistered()
+                + " displayStateSynced=" + hal.displayStateSynced() + " histogramEnabled="
+                + hal.histogramEnabled() + " gray=" + hal.gray() + " grayCallbacks="
+                + hal.grayCallbackCount() + " lastGray@"
+                + age(hal.lastGrayCallbackUptimeMillis(), now));
+        writer.println("  HBM authorization owned by HighBrightnessModeController; "
+                + "HDR peak max=" + HdrBrightness.cap(mAutomatic, mLux,
+                        hal.gray()));
+    }
+
+    private static String age(long at, long now) {
+        return at < 0 ? "never" : (now - at) + "ms ago";
     }
 }

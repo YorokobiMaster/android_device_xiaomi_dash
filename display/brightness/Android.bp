@@ -10,6 +10,9 @@ java_library {
     installable: true,
 }
 
+// tests/me/.../BrightnessCapsTest.java is a main()-style host-only check of the
+// stock thermal XML; the tests/src glob below deliberately excludes it. Its
+// repeatable entry point is tests/ambient-host.sh, not this module.
 android_test {
     name: "DashBrightnessTests",
     srcs: ["tests/src/**/*.java"],
