@@ -44,7 +44,7 @@ PRODUCT_SOONG_NAMESPACES += \
 
 # Bluetooth profiles exposed by the stock phone product.
 PRODUCT_PRODUCT_PROPERTIES += \
-    bluetooth.a2dp.mtk_offload_coex.queue_count=5 \
+    persist.bluetooth.a2dp_offload.coex_buf_count=5 \
     bluetooth.profile.a2dp.source.enabled=true \
     bluetooth.profile.asha.central.enabled=true \
     bluetooth.profile.avrcp.target.enabled=true \
