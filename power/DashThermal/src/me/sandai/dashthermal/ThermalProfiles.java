@@ -81,38 +81,4 @@ final class ThermalProfiles {
                 return profileId;
         }
     }
-
-    /** Display name for a stock classification in the main list subtitle. */
-    static int groupNameRes(String stockGroup) {
-        if (stockGroup == null) {
-            return 0;
-        }
-        switch (stockGroup) {
-            case "class0":
-                return R.string.profile_everyday;
-            case "video":
-                return R.string.profile_video;
-            case "game":
-            case "game2":
-                return R.string.category_gaming;
-            case "yuanshen":
-                return R.string.category_tencent;
-            case "xingtie":
-                return R.string.category_mihoyo;
-            case "navigation":
-                return R.string.profile_navigation;
-            case "camera":
-                return R.string.profile_camera;
-            case "evaluation":
-                return R.string.profile_evaluation;
-            case "huanji":
-                return R.string.profile_transfer;
-            case "arvr":
-                return R.string.profile_arvr;
-            case "demo":
-                return R.string.profile_demo;
-            default:
-                return 0;
-        }
-    }
 }

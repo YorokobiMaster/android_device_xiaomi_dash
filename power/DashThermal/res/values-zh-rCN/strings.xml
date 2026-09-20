@@ -16,8 +16,6 @@
     <string name="save_failed">保存失败，请重试</string>
     <string name="last_error_format">最近错误：%1$s</string>
 
-    <string name="profile_auto">自动</string>
-
     <string name="section_general">通用</string>
     <string name="section_gaming">游戏</string>
     <string name="section_others">其他</string>
@@ -42,12 +40,8 @@
     <string name="profile_enhanced_summary">提高 CPU 上限与降频温度阈值</string>
     <string name="profile_extreme_summary">最宽松的 GPU 与温控工作范围</string>
 
-    <string name="category_gaming">游戏</string>
-    <string name="category_tencent">腾讯游戏</string>
-    <string name="category_mihoyo">米哈游游戏</string>
     <string name="profile_unknown">未知策略（%1$d）</string>
 
-    <string name="list_subtitle_auto_category">自动 · %1$s</string>
     <string name="detail_footer">手动档位不随性能模式切换，并优先于事件场景。</string>
     <string name="performance_mode_title">性能模式</string>
     <string name="performance_mode_summary">放宽部分调度限制，可能增加耗电。</string>

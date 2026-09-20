@@ -13,6 +13,7 @@ android_app {
         "dash-thermal-client",
         "SettingsLibTile",
         "SettingsLibCollapsingToolbarBaseActivity",
+        "SettingsLibSettingsSpinner",
         "androidx.recyclerview_recyclerview",
     ],
     platform_apis: true,

@@ -11,6 +11,9 @@ final class AppEntry {
     /** Override from the getState() overrides bundle; -1 means automatic. */
     int overrideProfile = -1;
 
+    /** Effective profile from getAppPolicy(); -1 until loaded. */
+    int selectedProfile = -1;
+
     /** Lazily loaded through getAppPolicy(); null until loaded. */
     String stockGroup;
     boolean policyRequested;

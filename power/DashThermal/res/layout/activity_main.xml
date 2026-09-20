@@ -9,25 +9,6 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/filter_chip"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/list_horizontal_margin"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/bg_filter_chip"
-        android:clickable="true"
-        android:focusable="true"
-        android:drawableEnd="@drawable/ic_arrow_drop_down"
-        android:drawablePadding="4dp"
-        android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="8dp"
-        android:text="@string/filter_all_apps"
-        android:textColor="@color/settingslib_materialColorOnSecondaryContainer" />
-
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"

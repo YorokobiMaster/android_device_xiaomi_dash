@@ -17,7 +17,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -27,6 +26,7 @@ import com.android.settingslib.collapsingtoolbar.CollapsingToolbarBaseActivity;
 
 import java.text.Collator;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -48,7 +48,6 @@ public class MainActivity extends CollapsingToolbarBaseActivity
     private final ThermalServiceClient mClient = new ThermalServiceClient();
     private final ExecutorService mLoadExecutor = Executors.newSingleThreadExecutor();
 
-    private TextView mFilterChip;
     private TextView mErrorHint;
     private TextView mUnavailableText;
     private RecyclerView mRecyclerView;
@@ -70,18 +69,19 @@ public class MainActivity extends CollapsingToolbarBaseActivity
 
         mShowSystem = getPreferences(MODE_PRIVATE).getBoolean(PREF_SHOW_SYSTEM, false);
 
-        mFilterChip = findViewById(R.id.filter_chip);
         mErrorHint = findViewById(R.id.error_hint);
         mUnavailableText = findViewById(R.id.unavailable_text);
         mRecyclerView = findViewById(R.id.app_list);
 
-        mAdapter = new AppListAdapter(this);
+        mAdapter = new AppListAdapter(this, Arrays.<CharSequence>asList(
+                getString(R.string.filter_all_apps),
+                getString(R.string.filter_modified),
+                getString(R.string.section_general),
+                getString(R.string.section_gaming),
+                getString(R.string.section_others)));
         mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         mRecyclerView.setAdapter(mAdapter);
 
-        mFilterChip.setOnClickListener(this::showFilterPopup);
-
-        updateFilterChipText();
         showUnavailable();
     }
 
@@ -174,7 +174,7 @@ public class MainActivity extends CollapsingToolbarBaseActivity
         }
         mAvailable = true;
         mUnavailableText.setVisibility(View.GONE);
-        mFilterChip.setEnabled(true);
+        mAdapter.setFilterVisible(true);
 
         final String error = state.getString(ThermalServiceClient.KEY_ERROR, "");
         if (!error.isEmpty()) {
@@ -197,7 +197,7 @@ public class MainActivity extends CollapsingToolbarBaseActivity
     private void showUnavailable() {
         mAvailable = false;
         mUnavailableText.setVisibility(View.VISIBLE);
-        mFilterChip.setEnabled(false);
+        mAdapter.setFilterVisible(false);
         mAdapter.setItems(new ArrayList<>());
     }
 
@@ -292,44 +292,13 @@ public class MainActivity extends CollapsingToolbarBaseActivity
         }
     }
 
-    private void showFilterPopup(View anchor) {
-        final PopupMenu popup = new PopupMenu(this, anchor);
-        popup.getMenu().add(0, FILTER_ALL, 0, R.string.filter_all_apps).setCheckable(true);
-        popup.getMenu().add(0, FILTER_MODIFIED, 1, R.string.filter_modified).setCheckable(true);
-        popup.getMenu().add(0, FILTER_GENERAL, 2, R.string.section_general).setCheckable(true);
-        popup.getMenu().add(0, FILTER_GAMING, 3, R.string.section_gaming).setCheckable(true);
-        popup.getMenu().add(0, FILTER_OTHERS, 4, R.string.section_others).setCheckable(true);
-        popup.getMenu().setGroupCheckable(0, true, true);
-        popup.getMenu().findItem(mFilter).setChecked(true);
-        popup.setOnMenuItemClickListener(item -> {
-            mFilter = item.getItemId();
-            updateFilterChipText();
-            applyFilters();
-            return true;
-        });
-        popup.show();
-    }
-
-    private void updateFilterChipText() {
-        final int textRes;
-        switch (mFilter) {
-            case FILTER_MODIFIED:
-                textRes = R.string.filter_modified;
-                break;
-            case FILTER_GENERAL:
-                textRes = R.string.section_general;
-                break;
-            case FILTER_GAMING:
-                textRes = R.string.section_gaming;
-                break;
-            case FILTER_OTHERS:
-                textRes = R.string.section_others;
-                break;
-            default:
-                textRes = R.string.filter_all_apps;
-                break;
+    @Override
+    public void onFilterSelected(int filter) {
+        if (mFilter == filter) {
+            return;
         }
-        mFilterChip.setText(textRes);
+        mFilter = filter;
+        applyFilters();
     }
 
     @Override
@@ -374,6 +343,8 @@ public class MainActivity extends CollapsingToolbarBaseActivity
                             ThermalServiceClient.KEY_STOCK_GROUP, "");
                     entry.overrideProfile = policy.getInt(
                             ThermalServiceClient.KEY_OVERRIDE_PROFILE, entry.overrideProfile);
+                    entry.selectedProfile = policy.getInt(
+                            ThermalServiceClient.KEY_SELECTED_PROFILE, entry.selectedProfile);
                 }
                 if (mFilter >= FILTER_GENERAL) {
                     applyFilters();
@@ -387,7 +358,7 @@ public class MainActivity extends CollapsingToolbarBaseActivity
 
             @Override
             public void onError() {
-                // Keep the generic subtitle; no retry to avoid a binder call loop.
+                // Leave the subtitle empty; no retry to avoid a binder call loop.
             }
         });
     }
