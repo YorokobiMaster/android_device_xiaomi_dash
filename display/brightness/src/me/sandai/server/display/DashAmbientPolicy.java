@@ -490,6 +490,9 @@ public final class DashAmbientPolicy implements DeviceAmbientPolicy {
         if (!mActive || mFailure != null || mCallbacks == null) return;
         mAssistHandler.removeMessages(MSG_UPDATE_ASSIST);
         try {
+            // The torch cooldown timer must also restore the on-change subscription.
+            maybeRegisterAssist(uptimeMillis);
+            if (mFailure != null || !mActive) return;
             DashAmbientEstimator.Decision decision = mEstimator.onAssist(uptimeMillis, mMainState);
             mEstimator.traceDecision(uptimeMillis, decision, mMainState);
             if (decision.event() != DashAmbientEstimator.INVALID) {

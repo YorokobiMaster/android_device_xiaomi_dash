@@ -16,6 +16,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -363,6 +364,51 @@ public class DashAmbientPolicyTest {
         settleCamera();
         stale.get().onTorchModeChanged("0", true); // Stale generation across a restart.
         run(() -> assertEquals(failures, mFailures.get()));
+    }
+
+    @Test
+    public void torchCooldownResubscribesAssistWithoutRestart() throws Exception {
+        CameraCharacteristics info = mock(CameraCharacteristics.class);
+        when(info.get(CameraCharacteristics.FLASH_INFO_AVAILABLE)).thenReturn(Boolean.TRUE);
+        when(mCameras.getCameraIdList()).thenReturn(new String[]{"0"});
+        when(mCameras.getCameraCharacteristics("0")).thenReturn(info);
+        run(() -> mPolicy.start(SystemClock.uptimeMillis()));
+        settleCamera();
+        ArgumentCaptor<CameraManager.TorchCallback> captor =
+                ArgumentCaptor.forClass(CameraManager.TorchCallback.class);
+        verify(mCameras).registerTorchCallback(captor.capture(), eq(mCameraHandler));
+        CameraManager.TorchCallback torch = captor.getValue();
+        torch.onTorchModeChanged("0", false);
+        run(() -> listener()); // Initial OFF state subscribes once.
+        torch.onTorchModeChanged("0", true);
+        run(() -> verify(mSensors).unregisterListener(any(SensorEventListener.class),
+                eq(mAssist)));
+
+        CountDownLatch subscribed = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            subscribed.countDown();
+            return true;
+        }).when(mSensors).registerListener(any(SensorEventListener.class), eq(mAssist),
+                eq(250000), eq(mHandler));
+        torch.onTorchModeChanged("0", false);
+        run(() -> {
+            StringWriter out = new StringWriter();
+            mPolicy.dump(new PrintWriter(out));
+            assertTrue(out.toString(), out.toString().contains("assistRegistered=false"));
+            assertTrue(out.toString(), out.toString().contains("assistWait=torch cooldown"));
+        });
+        assertTrue("assist must resubscribe after torch cooldown",
+                subscribed.await(4, TimeUnit.SECONDS));
+        run(() -> {
+            verify(mSensors, times(2)).registerListener(any(SensorEventListener.class),
+                    eq(mAssist), eq(250000), eq(mHandler));
+            assertEquals(0, mFailures.get());
+            long now = SystemClock.uptimeMillis();
+            main(now, 100, true);
+            listener().onSensorChanged(new SensorEvent(mAssist, 0,
+                    SystemClock.elapsedRealtimeNanos(), new float[]{300}));
+            assertEquals(300, mApplied.get().lux, .001f);
+        });
     }
 
     /** The dump must explain the torch state and the deferred assist subscription. */
