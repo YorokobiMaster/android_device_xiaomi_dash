@@ -19,7 +19,7 @@ binder_call(dash_health, servicemanager)
 # NDK binder opens /sys/kernel/tracing/trace_marker on the first transaction.
 dontaudit dash_health self:capability { dac_override dac_read_search };
 
-# Charging toggle backend. input_suspend is labeled by the genfscon in
+# Native charging-limit thresholds are labeled by the genfscon in
 # genfs_contexts; everything else under power_supply stays off-limits.
 # Path traversal crosses battery-manager/power_supply (sysfs_batteryinfo)
 # and the battery dir itself (sysfs_battery_supply).

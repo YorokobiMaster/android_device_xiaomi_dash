@@ -14,4 +14,7 @@
 
     <!-- Ship it on: this is the behaviour stock users already expect. -->
     <bool name="config_proximityCheckOnWakeEnabledByDefault">true</bool>
+
+    <!-- Xiaomi smart charging resumes five percentage points below the limit. -->
+    <integer name="config_chargingControlBatteryRechargeMargin">5</integer>
 </resources>
