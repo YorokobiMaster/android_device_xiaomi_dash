@@ -1,0 +1,4 @@
+# Copyright (C) 2026 YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+-keep class me.sandai.dashfod.PinLayoutPlugin { *; }

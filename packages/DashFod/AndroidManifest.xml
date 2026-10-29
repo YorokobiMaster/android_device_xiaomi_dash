@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.CHANGE_OVERLAY_PACKAGES" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="com.android.systemui.permission.PLUGIN" />
 
     <application
         android:name=".DashFodApplication"
@@ -21,5 +22,13 @@
         android:defaultToDeviceProtectedStorage="true"
         android:directBootAware="true"
         android:label="Dash FOD"
-        android:persistent="true" />
+        android:persistent="true">
+        <service
+            android:name=".PinLayoutPlugin"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.systemui.action.PLUGIN_OVERLAY" />
+            </intent-filter>
+        </service>
+    </application>
 </manifest>

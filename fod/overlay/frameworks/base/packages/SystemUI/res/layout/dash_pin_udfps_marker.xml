@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0 -->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="@dimen/dash_pin_udfps_icon_size"
+    android:layout_height="@dimen/dash_pin_udfps_icon_size"
+    android:layout_marginBottom="@dimen/dash_pin_udfps_bottom_margin"
+    android:contentDescription="@string/accessibility_fingerprint_label"
+    android:importantForAccessibility="yes"
+    android:src="@drawable/ic_kg_fingerprint" />

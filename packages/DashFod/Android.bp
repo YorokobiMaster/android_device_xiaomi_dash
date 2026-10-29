@@ -26,7 +26,12 @@ android_app {
     srcs: [
         "src/me/sandai/dashfod/DashFodApplication.java",
         "src/me/sandai/dashfod/PinLayoutController.java",
+        "src/me/sandai/dashfod/PinLayoutPlugin.java",
     ],
+    libs: ["SystemUIPluginLib"],
+    optimize: {
+        proguard_flags_files: ["proguard.flags"],
+    },
     platform_apis: true,
     certificate: "platform",
     privileged: true,

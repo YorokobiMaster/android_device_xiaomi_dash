@@ -202,17 +202,17 @@
             androidprv:digit="0"
             androidprv:textView="@+id/pinEntry" />
 
-        <ImageView
+        <FrameLayout
             android:id="@+id/dash_pin_udfps_marker"
-            android:layout_width="@dimen/dash_pin_udfps_icon_size"
-            android:layout_height="@dimen/dash_pin_udfps_icon_size"
-            android:layout_marginBottom="@dimen/dash_pin_udfps_bottom_margin"
-            android:contentDescription="@string/accessibility_fingerprint_label"
-            android:importantForAccessibility="yes"
-            android:src="@drawable/ic_kg_fingerprint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             androidprv:layout_constraintBottom_toBottomOf="parent"
             androidprv:layout_constraintEnd_toEndOf="parent"
-            androidprv:layout_constraintStart_toStartOf="parent" />
+            androidprv:layout_constraintStart_toStartOf="parent">
+
+            <include layout="@layout/dash_pin_udfps_marker" />
+
+        </FrameLayout>
 
         <include
             android:id="@+id/keyguard_selector_fade_container"
