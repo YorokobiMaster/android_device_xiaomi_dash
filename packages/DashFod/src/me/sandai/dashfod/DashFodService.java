@@ -80,6 +80,7 @@ public final class DashFodService extends SystemService {
         mFingerprint = context.getSystemService(FingerprintManager.class);
         mPower = context.getSystemService(PowerManager.class);
         mUserId = ActivityManager.getCurrentUser();
+        initializeScreenOffUnlockSetting(mUserId);
         mHandler.post(() -> {
             mController.onStartup();
             refreshPolicy();
@@ -117,8 +118,21 @@ public final class DashFodService extends SystemService {
         Log.i(TAG, "system-service listener registered before SystemUI");
     }
 
+    private void initializeScreenOffUnlockSetting(int userId) {
+        var resolver = getContext().getContentResolver();
+        if (Settings.Secure.getStringForUser(resolver,
+                Settings.Secure.SCREEN_OFF_UNLOCK_UDFPS_ENABLED, userId) == null) {
+            boolean defaultOn = getContext().getResources().getBoolean(
+                    com.android.internal.R.bool.config_screen_off_udfps_default_on);
+            Settings.Secure.putIntForUser(resolver,
+                    Settings.Secure.SCREEN_OFF_UNLOCK_UDFPS_ENABLED,
+                    defaultOn ? 1 : 0, userId);
+        }
+    }
+
     @Override
     public void onUserSwitching(TargetUser from, TargetUser to) {
+        initializeScreenOffUnlockSetting(to.getUserIdentifier());
         mHandler.post(() -> {
             mUserId = to.getUserIdentifier();
             mController.onUserChanged();
@@ -225,7 +239,9 @@ public final class DashFodService extends SystemService {
         boolean screenOff = Settings.Secure.getIntForUser(getContext().getContentResolver(),
                 Settings.Secure.SCREEN_OFF_UNLOCK_UDFPS_ENABLED,
                 defaultOn ? 1 : 0, mUserId) == 1;
-        mAvailabilityPending = !syncKeyguardFodAvailability(enrolled);
+        // Command 8 arms the driver's suspend gesture independently of the
+        // current authentication. Apply the setting before the display sleeps.
+        mAvailabilityPending = !syncKeyguardFodAvailability(enrolled && screenOff);
         mController.setKeyguardAllowed(enrolled && !mAvailabilityPending
                 && (mPower.isInteractive() || screenOff));
     }
