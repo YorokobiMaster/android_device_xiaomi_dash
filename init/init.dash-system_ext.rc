@@ -14,13 +14,14 @@ service vendor.misys.common /vendor/bin/hypsys_vendor
     interface aidl vendor.xiaomi.hardware.misys.common.IMiSysImpl/default
     disabled
 
-# Disable Xiaomi network acceleration before its vendor service classes start.
+# Disable Xiaomi network acceleration and packet capture before vendor classes start.
 on init
     stop minetd
     stop slad
     stop sla-service-hal-2-0
     stop vendor.xiaomi.aidl.minet
     stop vendor.xiaomi.aidl.miwill
+    stop vendor_tcpdump
 
 # Stock property actions can explicitly start disabled services.
 on property:init.svc.minetd=running
@@ -37,6 +38,9 @@ on property:init.svc.vendor.xiaomi.aidl.minet=running
 
 on property:init.svc.vendor.xiaomi.aidl.miwill=running
     stop vendor.xiaomi.aidl.miwill
+
+on property:init.svc.vendor_tcpdump=running
+    stop vendor_tcpdump
 
 # IncFS sources use /proc/self/fd and are skipped by init's shutdown mount scan.
 # Detach them before services stop; their open files are released during shutdown.
