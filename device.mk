@@ -97,6 +97,7 @@ DEVICE_PACKAGE_OVERLAYS += \
 PRODUCT_PACKAGES += \
     DashFrameworkResOverlay \
     DashSettingsProviderOverlay \
+    DashSystemUIOverlay \
     DashTelecommOverlay \
     DashTelephonyOverlay \
     DashWifiOverlay

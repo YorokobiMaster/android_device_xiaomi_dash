@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+**
+** Copyright 2020, The Android Open Source Project
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+-->
+
+<!-- This is the notification shade window. -->
+<com.android.systemui.shade.NotificationShadeWindowView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:sysui="http://schemas.android.com/apk/prv/res/com.android.systemui"
+    android:id="@*com.android.systemui:id/legacy_window_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+    <!-- Placeholder for the communal UI that will be replaced if the feature is enabled. -->
+    <View
+        android:id="@*com.android.systemui:id/communal_ui_stub"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    <com.android.systemui.scrim.ScrimView
+        android:id="@*com.android.systemui:id/scrim_behind"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        sysui:ignoreRightInset="true"
+    />
+
+    <com.android.systemui.scrim.ScrimView
+        android:id="@*com.android.systemui:id/scrim_notifications"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        sysui:ignoreRightInset="true"
+    />
+
+    <include layout="@*com.android.systemui:layout/status_bar_expanded"
+             android:layout_width="match_parent"
+             android:layout_height="match_parent"
+             android:visibility="invisible" />
+
+    <com.android.systemui.statusbar.LightRevealScrim
+        android:id="@*com.android.systemui:id/light_reveal_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        sysui:ignoreRightInset="true" />
+
+    <!-- Root for all keyguard content. It was previously located within the shade. -->
+    <com.android.systemui.keyguard.ui.view.KeyguardRootView
+        android:id="@*com.android.systemui:id/keyguard_root_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        />
+
+    <!-- Shared container for the notification stack. Can be positioned by either
+         the keyguard_root_view or notification_panel -->
+    <com.android.systemui.statusbar.notification.stack.ui.view.SharedNotificationContainer
+        android:id="@*com.android.systemui:id/shared_notification_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        />
+
+    <!-- The header applies its own status bar insets. Keep the panel and
+         notification stack in their original cutout-safe bounds. -->
+    <ViewStub
+        android:id="@*com.android.systemui:id/qs_header_stub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        sysui:ignoreRightInset="true" />
+
+    <com.android.systemui.scrim.ScrimView
+        android:id="@*com.android.systemui:id/scrim_in_front"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        sysui:ignoreRightInset="true"
+    />
+
+    <!-- Keyguard messages -->
+    <LinearLayout
+        android:id="@*com.android.systemui:id/keyguard_message_area_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:layout_marginTop="@*com.android.systemui:dimen/status_bar_height"
+        android:layout_gravity="top|center_horizontal"
+        android:gravity="center_horizontal">
+        <com.android.keyguard.AuthKeyguardMessageArea
+            android:id="@*com.android.systemui:id/keyguard_message_area"
+            style="@*com.android.systemui:style/Keyguard.TextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@*com.android.systemui:dimen/keyguard_lock_padding"
+            android:gravity="center"
+            android:singleLine="true"
+            android:ellipsize="marquee"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <FrameLayout android:id="@*com.android.systemui:id/keyguard_bouncer_container"
+        android:layout_height="match_parent"
+        android:layout_width="match_parent"
+        android:layout_weight="1"
+        android:background="@android:color/transparent"
+        android:visibility="invisible"
+        android:clipChildren="false"
+        android:clipToPadding="false" />
+
+    <ViewStub
+        android:id="@*com.android.systemui:id/multi_shade_stub"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:inflatedId="@*com.android.systemui:id/multi_shade"
+        android:layout="@*com.android.systemui:layout/multi_shade" />
+
+    <FrameLayout
+        android:id="@*com.android.systemui:id/low_light_animation_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.android.systemui.biometrics.AuthRippleView
+        android:id="@*com.android.systemui:id/auth_ripple"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        sysui:ignoreRightInset="true"
+    />
+</com.android.systemui.shade.NotificationShadeWindowView>
