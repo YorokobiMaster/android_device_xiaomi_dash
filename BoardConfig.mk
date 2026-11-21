@@ -19,6 +19,8 @@ TARGET_NO_BOOTLOADER := true
 
 DASH_HARDWARE_PATH ?= hardware/xiaomi/dash
 DASH_KERNEL_WORKSPACE := kernel/platform/kernel-6.6
+# Soong versions that do not overwrite extra install ZIPs need the patch in
+# $(DASH_HARDWARE_PATH)/kernel/patches/build-soong.patch.
 include $(DASH_HARDWARE_PATH)/kernel/BoardConfig.mk
 include $(DASH_HARDWARE_PATH)/boot/BoardConfig.mk
 
@@ -40,7 +42,7 @@ TARGET_COPY_OUT_ODM_DLKM := odm_dlkm
 
 BOARD_USES_METADATA_PARTITION := true
 
-# Update only ROM-owned partitions; partial payloads preserve stock partitions.
+# List only the ROM-owned images in the partial payload.
 AB_OTA_UPDATER := true
 AB_OTA_PARTITIONS := \
     boot \
