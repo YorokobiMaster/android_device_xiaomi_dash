@@ -1,35 +1,8 @@
 # LineageOS 24.0 hooks for device power and resumed activity events.
-# Sources: 3aa30413ccd48d47a3d547219826bde8f7ce157d, 3c3b69aaa5963df44f14e448eaaabc2da7304cd2
+# Stock baseline: 22e17976919409f808980c16610fa967f3b35cd5
 
-diff --git a/services/core/java/com/android/server/power/DevicePowerManagerInternal.java b/services/core/java/com/android/server/power/DevicePowerManagerInternal.java
-new file mode 100644
-index 000000000000..fbc8f6ab805f
---- /dev/null
-+++ b/services/core/java/com/android/server/power/DevicePowerManagerInternal.java
-@@ -0,0 +1,21 @@
-+/*
-+ * Copyright (C) 2026 The LineageOS Project
-+ * SPDX-License-Identifier: Apache-2.0
-+ */
-+package com.android.server.power;
-+
-+/** Optional device power events, internal to system_server. Not a Power HAL replacement. */
-+public abstract class DevicePowerManagerInternal {
-+    /** Callbacks run under the power lock: implementations must only enqueue, never perform IPC. */
-+    public interface Listener {
-+        void onStateChanged(boolean interactive, boolean launchBoostDisabled);
-+        void onLaunch(boolean enabled);
-+        void onFling(int displayId, int durationMs);
-+    }
-+
-+    /** Seeds current policy before returning, without replaying an earlier launch or fling. */
-+    public abstract void setListener(Listener listener);
-+
-+    /** Called only by the resolved gesture source, not generic INTERACTION producers. */
-+    public abstract void onFling(int displayId, int durationMs);
-+}
 diff --git a/services/core/java/com/android/server/power/PowerManagerService.java b/services/core/java/com/android/server/power/PowerManagerService.java
-index cac2b761fb9a..148876f4211d 100644
+index 02ad3cd66945..d98f8a4bb41a 100644
 --- a/services/core/java/com/android/server/power/PowerManagerService.java
 +++ b/services/core/java/com/android/server/power/PowerManagerService.java
 @@ -1458,11 +1458,36 @@ public final class PowerManagerService extends SystemService
@@ -69,7 +42,7 @@ index cac2b761fb9a..148876f4211d 100644
      @Override
      public void onBootPhase(int phase) {
          if (phase == PHASE_SYSTEM_SERVICES_READY) {
-@@ -4570,6 +4595,7 @@ public final class PowerManagerService extends SystemService
+@@ -4571,6 +4596,7 @@ public final class PowerManagerService extends SystemService
                  Slog.d(TAG, "Setting HAL interactive mode to " + enable);
              }
              mHalInteractiveModeEnabled = enable;
@@ -77,7 +50,7 @@ index cac2b761fb9a..148876f4211d 100644
              Trace.traceBegin(Trace.TRACE_TAG_POWER, "setHalInteractive(" + enable + ")");
              try {
                  mNativeWrapper.nativeSetPowerMode(Mode.INTERACTIVE, enable);
-@@ -5219,12 +5245,37 @@ public final class PowerManagerService extends SystemService
+@@ -5220,12 +5246,37 @@ public final class PowerManagerService extends SystemService
      }
 
      private boolean setPowerModeInternal(int mode, boolean enabled) {
@@ -120,6 +93,148 @@ index cac2b761fb9a..148876f4211d 100644
      }
 
      @VisibleForTesting
+diff --git a/services/core/java/com/android/server/wm/ActivityRecord.java b/services/core/java/com/android/server/wm/ActivityRecord.java
+index 85e6a3573a25..0fdf3becd6bc 100644
+--- a/services/core/java/com/android/server/wm/ActivityRecord.java
++++ b/services/core/java/com/android/server/wm/ActivityRecord.java
+@@ -495,6 +495,9 @@ final class ActivityRecord extends WindowToken {
+     UriPermissionOwner uriPermissions; // current special URI access perms.
+     WindowProcessController app;      // if non-null, hosting application
+     private State mState;    // current state we are in
++    // Identity announced to resumed-activity listeners, retained until its matching exit.
++    int mResumedActivityPid;
++    int mResumedActivityUid;
+     private Bundle mIcicle;         // last saved activity state
+     private HandoffActivityData mHandoffActivityData; // last saved handoff activity data
+     private boolean mHandoffEnabled; // If Handoff is enabled for this activity.
+@@ -4082,6 +4085,7 @@ final class ActivityRecord extends WindowToken {
+     }
+
+     void detachFromProcess() {
++        mAtmService.notifyResumedActivityChanged(this, false);
+         if (app != null) {
+             app.removeActivity(this, false /* keepAssociation */);
+         }
+@@ -5743,6 +5747,9 @@ final class ActivityRecord extends WindowToken {
+
+         final State prevState = mState;
+         mState = state;
++        if ((prevState == RESUMED) != (state == RESUMED)) {
++            mAtmService.notifyResumedActivityChanged(this, state == RESUMED);
++        }
+
+         final TaskFragment taskFragment = getTaskFragment();
+         if (taskFragment != null) {
+diff --git a/services/core/java/com/android/server/wm/ActivityTaskManagerInternal.java b/services/core/java/com/android/server/wm/ActivityTaskManagerInternal.java
+index fa8a200da8cb..5add8ef6b45c 100644
+--- a/services/core/java/com/android/server/wm/ActivityTaskManagerInternal.java
++++ b/services/core/java/com/android/server/wm/ActivityTaskManagerInternal.java
+@@ -132,6 +132,12 @@ public abstract class ActivityTaskManagerInternal implements ActiveUids.Observer
+         default void onKeyguardGoingAway() {}
+     }
+
++    /** Callbacks run under the WM lock and must only enqueue; never perform vendor IPC here. */
++    public interface ResumedActivityListener {
++        void onResumedActivityChanged(ComponentName component, int pid, int uid, int activityId,
++                boolean resumed);
++    }
++
+     public interface HandoffEnablementListener {
+         default void onHandoffEnabledChanged(int taskId, boolean isEnabled) {}
+     }
+@@ -308,6 +314,11 @@ public abstract class ActivityTaskManagerInternal implements ActiveUids.Observer
+      */
+     public abstract void unregisterScreenObserver(ScreenObserver observer);
+
++    /** Registers and seeds every currently resumed activity atomically with lifecycle changes. */
++    public abstract void registerResumedActivityListener(ResumedActivityListener listener);
++
++    public abstract void unregisterResumedActivityListener(ResumedActivityListener listener);
++
+     /**
+      * Returns is the caller has the same uid as the Recents component
+      */
+diff --git a/services/core/java/com/android/server/wm/ActivityTaskManagerService.java b/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
+index e3ea3454e3a1..872e3b1babde 100644
+--- a/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
++++ b/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
+@@ -692,6 +692,10 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
+      */
+     float mMinPercentageMultiWindowSupportWidth;
+
++    @GuardedBy("mGlobalLock")
++    private final List<ActivityTaskManagerInternal.ResumedActivityListener>
++            mResumedActivityListeners = new ArrayList<>();
++
+     final List<ActivityTaskManagerInternal.ScreenObserver> mScreenObservers =
+             Collections.synchronizedList(new ArrayList<>());
+
+@@ -6704,6 +6708,37 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
+         }
+     }
+
++    @GuardedBy("mGlobalLock")
++    void notifyResumedActivityChanged(ActivityRecord activity, boolean resumed) {
++        if (resumed && !captureResumedActivityIdentity(activity)) return;
++        for (int i = 0; i < mResumedActivityListeners.size(); i++) {
++            notifyResumedActivityChanged(mResumedActivityListeners.get(i), activity, resumed);
++        }
++        if (!resumed) {
++            activity.mResumedActivityPid = 0;
++            activity.mResumedActivityUid = 0;
++        }
++    }
++
++    private boolean captureResumedActivityIdentity(ActivityRecord activity) {
++        if (activity.app == null) return false;
++        final int pid = activity.app.getPid();
++        if (pid <= 0) return false;
++        if (activity.mResumedActivityPid <= 0) {
++            activity.mResumedActivityPid = pid;
++            activity.mResumedActivityUid = activity.getUid();
++        }
++        return true;
++    }
++
++    private void notifyResumedActivityChanged(
++            ActivityTaskManagerInternal.ResumedActivityListener listener, ActivityRecord activity,
++            boolean resumed) {
++        if (activity.mResumedActivityPid <= 0) return;
++        listener.onResumedActivityChanged(activity.mActivityComponent, activity.mResumedActivityPid,
++                activity.mResumedActivityUid, System.identityHashCode(activity), resumed);
++    }
++
+     final class LocalService extends ActivityTaskManagerInternal {
+
+         @Override
+@@ -7000,6 +7035,27 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
+             mScreenObservers.remove(observer);
+         }
+
++        @Override
++        public void registerResumedActivityListener(ResumedActivityListener listener) {
++            synchronized (mGlobalLock) {
++                if (mResumedActivityListeners.contains(listener)) return;
++                mResumedActivityListeners.add(listener);
++                mRootWindowContainer.forAllActivities(activity -> {
++                    if (activity.isState(ActivityRecord.State.RESUMED)
++                            && captureResumedActivityIdentity(activity)) {
++                        notifyResumedActivityChanged(listener, activity, true);
++                    }
++                });
++            }
++        }
++
++        @Override
++        public void unregisterResumedActivityListener(ResumedActivityListener listener) {
++            synchronized (mGlobalLock) {
++                mResumedActivityListeners.remove(listener);
++            }
++        }
++
+         @Override
+         public boolean isCallerRecents(int callingUid) {
+             return ActivityTaskManagerService.this.isCallerRecents(callingUid);
 diff --git a/services/core/java/com/android/server/wm/DisplayPolicy.java b/services/core/java/com/android/server/wm/DisplayPolicy.java
 index 34106a638965..961d65302bf8 100644
 --- a/services/core/java/com/android/server/wm/DisplayPolicy.java
@@ -145,16 +260,23 @@ index 34106a638965..961d65302bf8 100644
 
                  @Override
 diff --git a/services/proguard.flags b/services/proguard.flags
-index 36d0f05f86ee..132ea9aabe78 100644
+index 36d0f05f86ee..a46ac706fc32 100644
 --- a/services/proguard.flags
 +++ b/services/proguard.flags
-@@ -14,6 +14,10 @@
+@@ -14,6 +14,17 @@
  }
 
  # APIs referenced by dependent JAR files and modules
 +# Optional device power client is loaded from a separate system-server JAR.
 +-keep class com.android.server.power.DevicePowerManagerInternal { *; }
 +-keep interface com.android.server.power.DevicePowerManagerInternal$Listener { *; }
++
++# Activity lifecycle APIs used by DashThermal in a separate system-server JAR.
++-keep interface com.android.server.wm.ActivityTaskManagerInternal$ResumedActivityListener { *; }
++-keepclassmembers class com.android.server.wm.ActivityTaskManagerInternal {
++    public void registerResumedActivityListener(com.android.server.wm.ActivityTaskManagerInternal$ResumedActivityListener);
++    public void unregisterResumedActivityListener(com.android.server.wm.ActivityTaskManagerInternal$ResumedActivityListener);
++}
 +
  # TODO(b/300514883): Pull @SystemApi keep rules from system-api.pro.
  # TODO(b/373579455): Evaluate if <init> needs to be kept.
@@ -217,163 +339,30 @@ index 63f63ae0ecb3..18c71049c508 100644
      @Test
      public void testMultiDisplay_wakefulnessUpdates() {
          final int nonDefaultDisplayGroupId = Display.DEFAULT_DISPLAY_GROUP + 1;
-diff --git a/services/core/java/com/android/server/wm/ActivityRecord.java b/services/core/java/com/android/server/wm/ActivityRecord.java
-index 27fdd934d75a..03847dbadf9a 100644
---- a/services/core/java/com/android/server/wm/ActivityRecord.java
-+++ b/services/core/java/com/android/server/wm/ActivityRecord.java
-@@ -493,6 +493,9 @@ final class ActivityRecord extends WindowToken {
-     UriPermissionOwner uriPermissions; // current special URI access perms.
-     WindowProcessController app;      // if non-null, hosting application
-     private State mState;    // current state we are in
-+    // Identity announced to resumed-activity listeners, retained until its matching exit.
-+    int mResumedActivityPid;
-+    int mResumedActivityUid;
-     private Bundle mIcicle;         // last saved activity state
-     private HandoffActivityData mHandoffActivityData; // last saved handoff activity data
-     private boolean mHandoffEnabled; // If Handoff is enabled for this activity.
-@@ -4080,6 +4083,7 @@ final class ActivityRecord extends WindowToken {
-     }
-
-     void detachFromProcess() {
-+        mAtmService.notifyResumedActivityChanged(this, false);
-         if (app != null) {
-             app.removeActivity(this, false /* keepAssociation */);
-         }
-@@ -5741,6 +5745,9 @@ final class ActivityRecord extends WindowToken {
-
-         final State prevState = mState;
-         mState = state;
-+        if ((prevState == RESUMED) != (state == RESUMED)) {
-+            mAtmService.notifyResumedActivityChanged(this, state == RESUMED);
-+        }
-
-         final TaskFragment taskFragment = getTaskFragment();
-         if (taskFragment != null) {
-diff --git a/services/core/java/com/android/server/wm/ActivityTaskManagerInternal.java b/services/core/java/com/android/server/wm/ActivityTaskManagerInternal.java
-index fa8a200da8cb..5add8ef6b45c 100644
---- a/services/core/java/com/android/server/wm/ActivityTaskManagerInternal.java
-+++ b/services/core/java/com/android/server/wm/ActivityTaskManagerInternal.java
-@@ -132,6 +132,12 @@ public abstract class ActivityTaskManagerInternal implements ActiveUids.Observer
-         default void onKeyguardGoingAway() {}
-     }
-
-+    /** Callbacks run under the WM lock and must only enqueue; never perform vendor IPC here. */
-+    public interface ResumedActivityListener {
-+        void onResumedActivityChanged(ComponentName component, int pid, int uid, int activityId,
-+                boolean resumed);
+diff --git a/services/core/java/com/android/server/power/DevicePowerManagerInternal.java b/services/core/java/com/android/server/power/DevicePowerManagerInternal.java
+new file mode 100644
+index 000000000000..fbc8f6ab805f
+--- /dev/null
++++ b/services/core/java/com/android/server/power/DevicePowerManagerInternal.java
+@@ -0,0 +1,21 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.server.power;
++
++/** Optional device power events, internal to system_server. Not a Power HAL replacement. */
++public abstract class DevicePowerManagerInternal {
++    /** Callbacks run under the power lock: implementations must only enqueue, never perform IPC. */
++    public interface Listener {
++        void onStateChanged(boolean interactive, boolean launchBoostDisabled);
++        void onLaunch(boolean enabled);
++        void onFling(int displayId, int durationMs);
 +    }
 +
-     public interface HandoffEnablementListener {
-         default void onHandoffEnabledChanged(int taskId, boolean isEnabled) {}
-     }
-@@ -308,6 +314,11 @@ public abstract class ActivityTaskManagerInternal implements ActiveUids.Observer
-      */
-     public abstract void unregisterScreenObserver(ScreenObserver observer);
-
-+    /** Registers and seeds every currently resumed activity atomically with lifecycle changes. */
-+    public abstract void registerResumedActivityListener(ResumedActivityListener listener);
++    /** Seeds current policy before returning, without replaying an earlier launch or fling. */
++    public abstract void setListener(Listener listener);
 +
-+    public abstract void unregisterResumedActivityListener(ResumedActivityListener listener);
-+
-     /**
-      * Returns is the caller has the same uid as the Recents component
-      */
-diff --git a/services/core/java/com/android/server/wm/ActivityTaskManagerService.java b/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
-index e86a6c263fbb..82c6065c71a4 100644
---- a/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
-+++ b/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
-@@ -692,6 +692,10 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
-      */
-     float mMinPercentageMultiWindowSupportWidth;
-
-+    @GuardedBy("mGlobalLock")
-+    private final List<ActivityTaskManagerInternal.ResumedActivityListener>
-+            mResumedActivityListeners = new ArrayList<>();
-+
-     final List<ActivityTaskManagerInternal.ScreenObserver> mScreenObservers =
-             Collections.synchronizedList(new ArrayList<>());
-
-@@ -6714,6 +6718,37 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
-         }
-     }
-
-+    @GuardedBy("mGlobalLock")
-+    void notifyResumedActivityChanged(ActivityRecord activity, boolean resumed) {
-+        if (resumed && !captureResumedActivityIdentity(activity)) return;
-+        for (int i = 0; i < mResumedActivityListeners.size(); i++) {
-+            notifyResumedActivityChanged(mResumedActivityListeners.get(i), activity, resumed);
-+        }
-+        if (!resumed) {
-+            activity.mResumedActivityPid = 0;
-+            activity.mResumedActivityUid = 0;
-+        }
-+    }
-+
-+    private boolean captureResumedActivityIdentity(ActivityRecord activity) {
-+        if (activity.app == null) return false;
-+        final int pid = activity.app.getPid();
-+        if (pid <= 0) return false;
-+        if (activity.mResumedActivityPid <= 0) {
-+            activity.mResumedActivityPid = pid;
-+            activity.mResumedActivityUid = activity.getUid();
-+        }
-+        return true;
-+    }
-+
-+    private void notifyResumedActivityChanged(
-+            ActivityTaskManagerInternal.ResumedActivityListener listener, ActivityRecord activity,
-+            boolean resumed) {
-+        if (activity.mResumedActivityPid <= 0) return;
-+        listener.onResumedActivityChanged(activity.mActivityComponent, activity.mResumedActivityPid,
-+                activity.mResumedActivityUid, System.identityHashCode(activity), resumed);
-+    }
-+
-     final class LocalService extends ActivityTaskManagerInternal {
-
-         @Override
-@@ -7010,6 +7045,27 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
-             mScreenObservers.remove(observer);
-         }
-
-+        @Override
-+        public void registerResumedActivityListener(ResumedActivityListener listener) {
-+            synchronized (mGlobalLock) {
-+                if (mResumedActivityListeners.contains(listener)) return;
-+                mResumedActivityListeners.add(listener);
-+                mRootWindowContainer.forAllActivities(activity -> {
-+                    if (activity.isState(ActivityRecord.State.RESUMED)
-+                            && captureResumedActivityIdentity(activity)) {
-+                        notifyResumedActivityChanged(listener, activity, true);
-+                    }
-+                });
-+            }
-+        }
-+
-+        @Override
-+        public void unregisterResumedActivityListener(ResumedActivityListener listener) {
-+            synchronized (mGlobalLock) {
-+                mResumedActivityListeners.remove(listener);
-+            }
-+        }
-+
-         @Override
-         public boolean isCallerRecents(int callingUid) {
-             return ActivityTaskManagerService.this.isCallerRecents(callingUid);
-diff --git a/services/proguard.flags b/services/proguard.flags
-index 59d22036c3fb..82704ed5a3f5 100644
---- a/services/proguard.flags
-+++ b/services/proguard.flags
-@@ -18,6 +18,13 @@
- -keep class com.android.server.power.DevicePowerManagerInternal { *; }
- -keep interface com.android.server.power.DevicePowerManagerInternal$Listener { *; }
-
-+# Activity lifecycle APIs used by DashThermal in a separate system-server JAR.
-+-keep interface com.android.server.wm.ActivityTaskManagerInternal$ResumedActivityListener { *; }
-+-keepclassmembers class com.android.server.wm.ActivityTaskManagerInternal {
-+    public void registerResumedActivityListener(com.android.server.wm.ActivityTaskManagerInternal$ResumedActivityListener);
-+    public void unregisterResumedActivityListener(com.android.server.wm.ActivityTaskManagerInternal$ResumedActivityListener);
++    /** Called only by the resolved gesture source, not generic INTERACTION producers. */
++    public abstract void onFling(int displayId, int durationMs);
 +}
-+
- # TODO(b/300514883): Pull @SystemApi keep rules from system-api.pro.
- # TODO(b/373579455): Evaluate if <init> needs to be kept.
- -keep interface android.annotation.SystemApi {
