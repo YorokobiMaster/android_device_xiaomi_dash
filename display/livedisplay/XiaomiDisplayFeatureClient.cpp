@@ -8,7 +8,6 @@
 
 #include <android/binder_manager.h>
 
-#include <string>
 #include <utility>
 
 using aidl::vendor::xiaomi::hardware::displayfeature_aidl::IDisplayFeature;
@@ -16,8 +15,8 @@ using aidl::vendor::xiaomi::hardware::displayfeature_aidl::IDisplayFeature;
 namespace {
 constexpr char kRemoteName[] =
     "vendor.xiaomi.hardware.displayfeature_aidl.IDisplayFeature/default";
+// HyperOS 4 keeps the V2 setFeature transaction and its four-int32 payload.
 constexpr int32_t kExpectedVersion = 2;
-constexpr char kExpectedHash[] = "b25c84c1c5a4d0e73a8fec6a2341f2d98ad40ce3";
 }  // namespace
 
 XiaomiDisplayFeatureClient::XiaomiDisplayFeatureClient(DeathCallback death_callback,
@@ -47,12 +46,7 @@ XiaomiDisplayFeatureClient::XiaomiDisplayFeatureClient(DeathCallback death_callb
     return status;
   }
 
-  std::string hash;
-  status = remote->getInterfaceHash(&hash);
-  if (!status.isOk()) {
-    return status;
-  }
-  if (version != kExpectedVersion || hash != kExpectedHash) {
+  if (version != kExpectedVersion) {
     return ::ndk::ScopedAStatus::fromStatus(STATUS_BAD_TYPE);
   }
 

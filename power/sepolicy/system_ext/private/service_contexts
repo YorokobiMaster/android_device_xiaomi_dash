@@ -1,4 +1,0 @@
-# Copyright (C) 2026 YorokobiMaster
-# SPDX-License-Identifier: Apache-2.0
-
-dash_thermal  u:object_r:dash_thermal_service:s0

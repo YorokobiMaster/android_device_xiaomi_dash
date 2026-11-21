@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
-    Copyright (C) 2026 YorokobiMaster
-    SPDX-License-Identifier: Apache-2.0
--->
-<config>
-    <allow-ignore-location-settings package="com.mediatek.ims" attributionTag="*" />
-</config>

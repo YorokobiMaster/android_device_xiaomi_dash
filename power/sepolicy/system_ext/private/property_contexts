@@ -1,4 +1,0 @@
-# Copyright (C) 2026 YorokobiMaster
-# SPDX-License-Identifier: Apache-2.0
-
-persist.sys.dash.power.enabled u:object_r:dash_power_prop:s0 exact bool

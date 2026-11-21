@@ -18,9 +18,6 @@
 
 // NDK client of the stock
 // vendor.xiaomi.hardware.displayfeature_aidl.IDisplayFeature/default instance.
-// The remote interface version and hash are pinned: the wire contract was
-// recovered from the exact stock build in docs/dash/livedisplay-v1-contract.md
-// and any drift means the retained vendor changed underneath us.
 class XiaomiDisplayFeatureClient final : public dash::DisplayFeatureBackend {
  public:
   using DeathCallback = std::function<void()>;
@@ -30,8 +27,7 @@ class XiaomiDisplayFeatureClient final : public dash::DisplayFeatureBackend {
   explicit XiaomiDisplayFeatureClient(DeathCallback death_callback, Lookup lookup = nullptr,
                                       Link link = nullptr);
 
-  // Resolves the stock service, verifies the pinned version/hash and links to
-  // death. Must succeed once before setFeature is used.
+  // Resolves the stock V2 service and links to death before setFeature is used.
   ::ndk::ScopedAStatus connect();
 
   dash::HalStatus setFeature(int32_t displayId, int32_t feature, int32_t value,

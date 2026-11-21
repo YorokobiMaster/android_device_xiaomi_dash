@@ -13,8 +13,8 @@ $(call inherit-product, $(DASH_HARDWARE_PATH)/boot/device.mk)
 $(call inherit-product, $(DEVICE_PATH)/fod/fod.mk)
 $(call inherit-product, $(DEVICE_PATH)/display/brightness/brightness.mk)
 $(call inherit-product, $(DEVICE_PATH)/display/livedisplay/livedisplay.mk)
-$(call inherit-product, $(DEVICE_PATH)/power/power.mk)
-$(call inherit-product, $(DEVICE_PATH)/ims/ims.mk)
+$(call inherit-product, $(DASH_HARDWARE_PATH)/power/power.mk)
+$(call inherit-product, $(DASH_HARDWARE_PATH)/ims/ims.mk)
 $(call inherit-product, $(DEVICE_PATH)/face/face.mk)
 
 # Device-specific system_server startup list.

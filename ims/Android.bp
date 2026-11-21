@@ -1,9 +1,0 @@
-// Copyright (C) 2026 YorokobiMaster
-// SPDX-License-Identifier: Apache-2.0
-
-prebuilt_etc {
-    name: "init.dash-ims.rc",
-    src: "init.dash-ims.rc",
-    sub_dir: "init",
-    system_ext_specific: true,
-}

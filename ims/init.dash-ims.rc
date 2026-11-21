@@ -1,9 +1,0 @@
-# Copyright (C) 2026 YorokobiMaster
-# SPDX-License-Identifier: Apache-2.0
-
-# Run after /data's persistent properties load and before Zygote starts.
-# Both video gates must be off to skip the stock IMS VT client's native init
-# and its media.VTS retries. VoLTE and VoWiFi retain their existing settings.
-on post-fs-data
-    setprop persist.vendor.vilte_support 0
-    setprop persist.vendor.viwifi_support 0

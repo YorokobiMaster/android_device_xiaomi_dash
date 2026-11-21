@@ -2,18 +2,12 @@
 # Copyright (C) 2026 YorokobiMaster
 # SPDX-License-Identifier: Apache-2.0
 set -eu
-hooks_baseline=ce690697d1f6d60ddf2785374432fa812e0c7c7b
-hooks_patch=device/xiaomi/dash/power/patches/frameworks-base.patch
-mkdir -p device/xiaomi/dash/power/patches
-git -C frameworks/base diff "$hooks_baseline" -- \
-    services/proguard.flags \
-    services/core/java/com/android/server/power/DevicePowerManagerInternal.java \
-    services/core/java/com/android/server/power/PowerManagerService.java \
-    services/core/java/com/android/server/wm/DisplayPolicy.java \
-    services/tests/powerservicetests/src/com/android/server/power/PowerManagerServiceTest.java \
-    > "$hooks_patch"
-hooks_interface=services/core/java/com/android/server/power/DevicePowerManagerInternal.java
-if ! git -C frameworks/base ls-files --error-unmatch "$hooks_interface" >/dev/null 2>&1; then
-    git -C frameworks/base diff --no-index -- /dev/null "$hooks_interface" >> "$hooks_patch" \
-        || test "$?" = 1
-fi
+
+power_hook=${1:-3aa30413ccd48d47a3d547219826bde8f7ce157d}
+activity_hook=${2:-3c3b69aaa5963df44f14e448eaaabc2da7304cd2}
+hooks=$(git -C frameworks/base show --format= --no-color --no-ext-diff "$power_hook" "$activity_hook")
+{
+    printf '# LineageOS 24.0 hooks for device power and resumed activity events.\n'
+    printf '# Sources: %s, %s\n\n' "$power_hook" "$activity_hook"
+    printf '%s\n' "$hooks" | sed 's/^ $//'
+} > device/xiaomi/dash/power/patches/frameworks-base.patch

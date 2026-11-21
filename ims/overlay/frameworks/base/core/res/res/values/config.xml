@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2026 YorokobiMaster
-     SPDX-License-Identifier: Apache-2.0 -->
-<resources>
-    <!-- VoLTE available -->
-    <bool name="config_device_volte_available">true</bool>
-    <!-- Keep IMS voice while disabling IMS video calling. -->
-    <bool name="config_device_vt_available">false</bool>
-</resources>

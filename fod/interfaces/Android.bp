@@ -3,6 +3,7 @@
 
 aidl_interface {
     name: "vendor.xiaomi.hardware.fingerprintextension",
+    owner: "xiaomi",
     vendor_available: true,
     srcs: [
         "vendor/xiaomi/hardware/fingerprintextension/IXiaomiFingerprint.aidl",

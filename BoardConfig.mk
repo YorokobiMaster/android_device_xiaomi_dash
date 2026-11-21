@@ -76,8 +76,8 @@ SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += \
 include $(DASH_HARDWARE_PATH)/BoardConfig.mk
 
 include $(DEVICE_PATH)/fod/BoardConfig.mk
-include $(DEVICE_PATH)/power/BoardConfig.mk
-include $(DEVICE_PATH)/ims/BoardConfig.mk
+include $(DASH_HARDWARE_PATH)/power/BoardConfig.mk
+include $(DASH_HARDWARE_PATH)/ims/BoardConfig.mk
 include $(DEVICE_PATH)/display/livedisplay/BoardConfig.mk
 
 # BoardConfig is loaded separately from product inheritance.
