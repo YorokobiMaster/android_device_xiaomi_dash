@@ -17,11 +17,15 @@ TARGET_BOARD_PLATFORM := mt6991
 TARGET_BOOTLOADER_BOARD_NAME := mt6991
 TARGET_NO_BOOTLOADER := true
 
-# Kleaf builds the kernel; Android assembles the partition images.
-include $(DEVICE_PATH)/kernel/BoardConfigKernel.mk
+DASH_HARDWARE_PATH ?= hardware/xiaomi/dash
+DASH_KERNEL_WORKSPACE := kernel/platform/kernel-6.6
+include $(DASH_HARDWARE_PATH)/kernel/BoardConfig.mk
+include $(DASH_HARDWARE_PATH)/boot/BoardConfig.mk
 
-BOARD_KERNEL_PAGESIZE := 4096
-BOARD_FLASH_BLOCK_SIZE := 262144
+# Keep Lineage's native UAPI-only Kleaf target. Soong owns the kernel image.
+TARGET_KERNEL_SOURCE := $(DASH_KERNEL_WORKSPACE)/kernel_device_modules-6.6
+TARGET_KERNEL_PLATFORM_TARGET := kernel
+include $(DASH_KERNEL_WORKSPACE)/build/bazel_mgk_rules/android/config.mk
 
 TARGET_SCREEN_DENSITY := 480
 
@@ -36,32 +40,39 @@ TARGET_COPY_OUT_ODM_DLKM := odm_dlkm
 
 BOARD_USES_METADATA_PARTITION := true
 
-# Need time to experience Lineage Recovery.
-TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery/fstab.mt6991
-TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
-BOARD_VENDOR_SEPOLICY_DIRS += $(DEVICE_PATH)/recovery/sepolicy
-$(call soong_config_set,libinit,vendor_init_lib,libinit_recovery_fake_lock)
+# Update only ROM-owned partitions; partial payloads preserve stock partitions.
+AB_OTA_UPDATER := true
+AB_OTA_PARTITIONS := \
+    boot \
+    init_boot \
+    product \
+    system \
+    system_dlkm \
+    system_ext \
+    vbmeta \
+    vendor_boot \
+    vendor_dlkm
+BOARD_PARTIAL_OTA_UPDATE_PARTITIONS_LIST := $(AB_OTA_PARTITIONS)
+
+# HyperOS uses a 12 GiB super partition with a single main group.
+BOARD_SUPER_PARTITION_SIZE := 12884901888
+BOARD_SUPER_PARTITION_GROUPS := main
+BOARD_MAIN_SIZE := 12874416128
+BOARD_MAIN_PARTITION_LIST := product system system_dlkm system_ext vendor_dlkm
+
 TARGET_USERIMAGES_USE_F2FS := true
 
 # Choose a preferred file system.
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := erofs
 BOARD_ODMIMAGE_FILE_SYSTEM_TYPE := erofs
-BOARD_SYSTEM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
-BOARD_VENDOR_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 BOARD_ODM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 
 # I don't modify /vendor.
 TARGET_USES_PREBUILT_VENDOR_SEPOLICY := true
 
-# Keep vendor_dlkm within the stock partition size.
-BOARD_VENDOR_DLKMIMAGE_PARTITION_SIZE := 25477120
-BOARD_VENDOR_DLKMIMAGE_EROFS_COMPRESSOR := lz4hc,level=12
-BOARD_VENDOR_DLKMIMAGE_EROFS_PCLUSTER_SIZE := 16384
-
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += \
     $(DEVICE_PATH)/sepolicy/system_ext/private
 
-DASH_HARDWARE_PATH ?= hardware/xiaomi/dash
 include $(DASH_HARDWARE_PATH)/BoardConfig.mk
 
 include $(DEVICE_PATH)/fod/BoardConfig.mk

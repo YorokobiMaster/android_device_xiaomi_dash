@@ -1,7 +1,0 @@
-# Copyright (C) 2026 YorokobiMaster
-# SPDX-License-Identifier: Apache-2.0
-
-persist.vendor.mtk.pl_lnk u:object_r:vendor_recovery_mtk_plpath_prop:s0 exact bool
-vendor.mtk.boot0_link u:object_r:vendor_recovery_mtk_plpath_prop:s0 prefix bool
-vendor.mtk.boot1_link u:object_r:vendor_recovery_mtk_plpath_prop:s0 prefix bool
-vendor.mtk.retry_create_pl u:object_r:vendor_recovery_mtk_plpath_prop:s0 exact bool

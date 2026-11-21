@@ -31,5 +31,3 @@ LINEAGE_BUILDTYPE := RAWHIDE
 # I don't like Aperture.
 PRODUCT_NO_CAMERA := true
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
-
-TARGET_FORCE_OTA_PACKAGE := false
