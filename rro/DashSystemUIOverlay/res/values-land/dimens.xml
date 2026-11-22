@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Keep both ends inside the cutout-safe content area, including room
+         for the 6dp privacy dot (152px + up to 24px at device display sizes). -->
+    <dimen name="rounded_corner_content_padding">176px</dimen>
+
+    <!-- The QS frame still needs to clear the physical cutout. -->
+    <dimen name="notification_panel_margin_horizontal">152px</dimen>
+
+    <dimen name="large_screen_shade_header_min_height">@*android:dimen/status_bar_height_landscape</dimen>
+    <dimen name="qs_header_height">@*android:dimen/status_bar_height_landscape</dimen>
+    <dimen name="qs_header_row_min_height">@*android:dimen/status_bar_height_landscape</dimen>
+</resources>

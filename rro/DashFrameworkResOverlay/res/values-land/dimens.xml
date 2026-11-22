@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="status_bar_height_landscape">152px</dimen>
+    <!-- SystemBarUtils reads the default height, including in landscape. -->
+    <dimen name="status_bar_height_default">@dimen/status_bar_height_landscape</dimen>
+</resources>

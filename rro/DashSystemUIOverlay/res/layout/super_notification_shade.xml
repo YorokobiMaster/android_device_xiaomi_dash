@@ -47,10 +47,13 @@
         sysui:ignoreRightInset="true"
     />
 
+    <!-- The QS frame supplies its own side margins. Don't add the window's
+         cutout inset to those margins again. -->
     <include layout="@*com.android.systemui:layout/status_bar_expanded"
              android:layout_width="match_parent"
              android:layout_height="match_parent"
-             android:visibility="invisible" />
+             android:visibility="invisible"
+             sysui:ignoreRightInset="true" />
 
     <com.android.systemui.statusbar.LightRevealScrim
         android:id="@*com.android.systemui:id/light_reveal_scrim"
