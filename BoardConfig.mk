@@ -47,6 +47,7 @@ AB_OTA_UPDATER := true
 AB_OTA_PARTITIONS := \
     boot \
     init_boot \
+    logo \
     product \
     system \
     system_dlkm \
@@ -55,6 +56,7 @@ AB_OTA_PARTITIONS := \
     vendor_boot \
     vendor_dlkm
 BOARD_PARTIAL_OTA_UPDATE_PARTITIONS_LIST := $(AB_OTA_PARTITIONS)
+BOARD_PACK_RADIOIMAGES += logo
 
 # HyperOS uses a 12 GiB super partition with a single main group.
 BOARD_SUPER_PARTITION_SIZE := 12884901888
