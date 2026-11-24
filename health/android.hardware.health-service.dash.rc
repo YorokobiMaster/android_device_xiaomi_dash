@@ -1,0 +1,11 @@
+# Copyright (C) 2026 YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# Replace normal battery reporting; vendor.charger keeps the stock executable.
+service vendor.health-default /vendor/bin/hw/android.hardware.health-service.dash
+    override
+    class hal
+    user system
+    group system
+    capabilities WAKE_ALARM BLOCK_SUSPEND
+    file /dev/kmsg w
