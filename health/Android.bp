@@ -5,6 +5,7 @@ cc_binary {
     name: "dash-health",
     srcs: ["dash-health.cpp"],
     static_libs: [
+        "//hardware/xiaomi/dash:libdash-charging-control",
         "vendor.lineage.health-V2-ndk",
     ],
     shared_libs: [

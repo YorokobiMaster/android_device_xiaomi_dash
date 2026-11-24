@@ -1,0 +1,16 @@
+// Copyright (C) 2026 YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+cc_binary {
+    name: "dash-fast-charge",
+    srcs: ["dash-fast-charge.cpp"],
+    static_libs: [
+        "//hardware/xiaomi/dash:libdash-fast-charge",
+        "vendor.lineage.health-V2-ndk",
+    ],
+    shared_libs: ["libbase", "libbinder_ndk", "libcutils"],
+    system_ext_specific: true,
+    relative_install_path: "hw",
+    init_rc: ["dash-fast-charge.rc"],
+    vintf_fragments: ["dash-fast-charge.xml"],
+}

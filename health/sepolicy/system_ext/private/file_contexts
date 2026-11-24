@@ -2,4 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 /(system_ext|system/system_ext)/bin/hw/dash-health  u:object_r:dash_health_exec:s0
+/(system_ext|system/system_ext)/bin/hw/dash-fast-charge  u:object_r:dash_fast_charge_exec:s0
 /data/misc/dash-health(/.*)?  u:object_r:dash_health_data_file:s0
+/data/misc/dash-fast-charge(/.*)?  u:object_r:dash_fast_charge_data_file:s0

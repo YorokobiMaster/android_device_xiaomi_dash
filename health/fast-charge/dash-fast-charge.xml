@@ -1,0 +1,11 @@
+<!--
+    Copyright (C) 2026 YorokobiMaster
+    SPDX-License-Identifier: Apache-2.0
+-->
+<manifest version="1.0" type="framework">
+    <hal format="aidl">
+        <name>vendor.system.health</name>
+        <version>2</version>
+        <fqname>IFastCharge/default</fqname>
+    </hal>
+</manifest>

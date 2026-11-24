@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 YorokobiMaster
+     SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string name="dash_charging_speed_balanced">Balanced</string>
+    <string name="dash_charging_speed_top_speed">Top speed</string>
+
+    <!-- Lineage takes the last supported entry as the unset default. Keep stock's
+         balanced default without changing the framework controller. -->
+    <string-array name="charging_speed_entries" translatable="false">
+        <item>@string/dash_charging_speed_top_speed</item>
+        <item>@string/dash_charging_speed_balanced</item>
+    </string-array>
+    <string-array name="charging_speed_values" translatable="false">
+        <item>4</item> <!-- SUPER_FAST_CHARGE -> stock SIC 8 + sensing feedback -->
+        <item>2</item> <!-- FAST_CHARGE -> stock SIC 0 -->
+    </string-array>
+</resources>
