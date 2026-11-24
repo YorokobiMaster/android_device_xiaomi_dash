@@ -22,6 +22,11 @@ DASH_KERNEL_WORKSPACE := kernel/platform/kernel-6.6
 include $(DASH_HARDWARE_PATH)/kernel/BoardConfig.mk
 include $(DASH_HARDWARE_PATH)/boot/BoardConfig.mk
 
+ifneq ($(wildcard vendor/lineage-priv/keys/avb.pk8),)
+BOARD_AVB_KEY_PATH := vendor/lineage-priv/keys/avb.pk8
+BOARD_AVB_ALGORITHM := SHA256_RSA4096
+endif
+
 # Keep Lineage's native UAPI-only Kleaf target. Soong owns the kernel image.
 BOARD_USES_SOONG_KERNEL := true
 TARGET_KERNEL_SOURCE := $(DASH_KERNEL_WORKSPACE)/kernel_device_modules-6.6

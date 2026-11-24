@@ -25,6 +25,8 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, device/xiaomi/dash/device.mk)
 $(call inherit-product, device/xiaomi/dash/lineage.mk)
 
+$(call inherit-product-if-exists, vendor/sandai/config/local.mk)
+
 # bleeding-edge? probably.
 LINEAGE_BUILDTYPE := RAWHIDE
 
