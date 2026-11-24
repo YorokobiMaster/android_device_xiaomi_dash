@@ -1,0 +1,7 @@
+# Copyright (C) 2026 YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# The shared power service notifies the retained vendor thermal HAL.
+unix_socket_connect(system_server, thermal_hal, hal_thermal_server)
+
+allow init sysfs_dash_gpt:file setattr;

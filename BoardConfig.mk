@@ -72,6 +72,7 @@ BOARD_ODM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
 # I don't modify /vendor.
 TARGET_USES_PREBUILT_VENDOR_SEPOLICY := true
 
+BOARD_VENDOR_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/vendor
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += \
     $(DEVICE_PATH)/sepolicy/system_ext/private
 

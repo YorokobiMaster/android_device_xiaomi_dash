@@ -1,0 +1,5 @@
+# Copyright (C) 2026 YorokobiMaster
+# SPDX-License-Identifier: Apache-2.0
+
+# The retained thermal HAL accepts notifications on its legacy socket.
+typeattribute hal_thermal_default socket_between_core_and_vendor_violators;
