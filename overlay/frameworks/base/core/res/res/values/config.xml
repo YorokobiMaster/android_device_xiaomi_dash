@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2026 YorokobiMaster
+    SPDX-License-Identifier: Apache-2.0
+-->
 <resources>
-    <!-- VoLTE available -->
-
     <!-- 5G modes supported by the retained MediaTek radio stack -->
     <bool name="config_telephony5gStandalone">true</bool>
     <bool name="config_telephony5gNonStandalone">true</bool>
@@ -16,29 +18,9 @@
         M 0,0 H -33 V 152 H 33 V 0 H 0 Z
     </string>
 
-    <!-- Display shape -->
-
-    <!-- UDFPS Sensor Properties: [sensorLocationX, sensorLocationY, sensorRadius] -->
-    <integer-array name="config_udfps_sensor_props" translatable="false">
-        <item>640</item>
-        <item>2124</item>
-        <item>79</item>
-    </integer-array>
-
     <!-- Always-on display. The panel driver provides doze/AOD support
          (doze_enable/doze_disable, AOD brightness tables); present it
          through SystemUI's doze service. -->
     <bool name="config_dozeAlwaysOnDisplayAvailable">true</bool>
-
-    <!-- Whether device supports double tap to wake -->
-
-    <!-- AOSP Screen attention, backed by dash's front-camera AOV pipeline. -->
-
-    <!-- DashFod arms the fingerprint extension only after Doze is visible. -->
-
-    <!-- Default the screen-off UDFPS switch on: a fresh flash should have
-         working AOD fingerprint out of the box. AmbientDisplayConfiguration
-         and the Settings toggle both resolve an unset secure key from this,
-         and DashFod falls back to it too. -->
 
 </resources>

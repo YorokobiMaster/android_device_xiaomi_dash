@@ -1,8 +1,13 @@
-// Copyright (C) 2026 GitHub @YorokobiMaster
+// Copyright (C) 2026 YorokobiMaster
 // SPDX-License-Identifier: Apache-2.0
 java_library {
     name: "dash-brightness",
     srcs: ["src/**/*.java"],
+    // A17 trial: use the native user curve and short-term model, with the stock ramp.
+    exclude_srcs: [
+        "src/me/sandai/server/display/DashBrightnessCurvePolicy.java",
+        "src/me/sandai/server/display/DashShortTermModelPolicy.java",
+    ],
     libs: ["services.core"],
     static_libs: ["vendor.xiaomi.hardware.displayfeature_aidl-V2-java"],
     platform_apis: true,

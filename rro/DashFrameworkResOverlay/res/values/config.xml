@@ -4,12 +4,9 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
+    <!-- Match the 1280x2772 panel while retaining the existing corner curves.
+         Override the retained vendor RRO's legacy 1080x2400 display shape. -->
     <string name="config_mainDisplayShape" translatable="false">M20 0h1240s20 0 20 20v2732s0 20 -20 20h-1240s-20 0 -20 -20v-2732s0 -20 20 -20</string>
-    <!-- DashLED handles ring notifications. Keep the standard notification
-         and attention producers disabled while retaining the stock HAL. -->
-
-    <!-- Let NotificationManager apply the device default and persist user
-         revocations; the LED app must never rewrite listener grants. -->
 
     <!-- Always-on display is opt-in and independent of DashWake gestures. -->
     <bool name="config_dozeAlwaysOnEnabled">false</bool>
@@ -23,6 +20,4 @@
          is absent from LineageOS. Product overlays outrank the retained vendor
          overlay, so route doze back to SystemUI. -->
     <string name="config_dozeComponent" translatable="false">com.android.systemui/com.android.systemui.doze.DozeService</string>
-    <!-- Night Light UI/scheduling is retained; DashEyeCare drives vendor feature 3.
-         Set every channel polynomial to 1 so the framework cannot double-tint. -->
 </resources>

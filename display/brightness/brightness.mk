@@ -1,6 +1,6 @@
-# Copyright (C) 2026 GitHub @YorokobiMaster
+# Copyright (C) 2026 YorokobiMaster
 # SPDX-License-Identifier: Apache-2.0
-PRODUCT_PACKAGES += dash-brightness
+PRODUCT_PACKAGES += dash-brightness DashBrightnessOverlay
 PRODUCT_SYSTEM_SERVER_JARS_EXTRA += system_ext:dash-brightness
 
 PRODUCT_COPY_FILES += \

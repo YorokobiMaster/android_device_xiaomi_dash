@@ -23,3 +23,17 @@ PRODUCT_PRODUCT_PROPERTIES += \
 PRODUCT_SYSTEM_PROPERTIES += \
     ro.miui.build.region=cn \
     ro.sf.lcd_density=480
+
+# Use per-frame CPU hints with the MTK ADPF kernel fixes.
+PRODUCT_SYSTEM_PROPERTIES += \
+    debug.hwui.use_hint_manager=true \
+    debug.sf.enable_adpf_cpu_hint=true
+
+# Validated 120 Hz budgets; other refresh rates retain the base durations.
+PRODUCT_SYSTEM_PROPERTIES += \
+    debug.sf.late.app.duration.120=11600000 \
+    debug.sf.late.sf.duration.120=10300000 \
+    debug.sf.early.app.duration.120=11600000 \
+    debug.sf.early.sf.duration.120=10300000 \
+    debug.sf.earlyGl.app.duration.120=11600000 \
+    debug.sf.earlyGl.sf.duration.120=10300000

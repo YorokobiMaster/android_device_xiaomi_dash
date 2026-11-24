@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 YorokobiMaster; SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string name="config_deviceAmbientPolicy" translatable="false">me.sandai.server.display.DashAmbientPolicy</string>
+    <string name="config_deviceBrightnessPolicy" translatable="false">me.sandai.server.display.DashBrightnessPolicy</string>
+    <string name="config_deviceBrightnessRampPolicy" translatable="false">me.sandai.server.display.DashBrightnessRampPolicy</string>
+    <!-- A17 owns user-curve shaping and short-term preference. -->
+</resources>

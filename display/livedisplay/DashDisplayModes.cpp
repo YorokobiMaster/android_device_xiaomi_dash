@@ -20,7 +20,9 @@ namespace {
     case dash::ApplyResult::kUnknownMode:
       return ::ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     case dash::ApplyResult::kHalUnavailable:
-      return ::ndk::ScopedAStatus::fromStatus(STATUS_NAME_NOT_FOUND);
+      // Retry after the vendor HAL reconnects. NAME_NOT_FOUND escapes
+      // LineageHardwareManager's RemoteException handler as NoSuchElementException.
+      return ::ndk::ScopedAStatus::fromStatus(STATUS_WOULD_BLOCK);
     case dash::ApplyResult::kHalDead:
       return ::ndk::ScopedAStatus::fromStatus(STATUS_DEAD_OBJECT);
     case dash::ApplyResult::kHalError:

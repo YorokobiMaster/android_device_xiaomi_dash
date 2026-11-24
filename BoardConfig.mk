@@ -19,12 +19,11 @@ TARGET_NO_BOOTLOADER := true
 
 DASH_HARDWARE_PATH ?= hardware/xiaomi/dash
 DASH_KERNEL_WORKSPACE := kernel/platform/kernel-6.6
-# Soong versions that do not overwrite extra install ZIPs need the patch in
-# $(DASH_HARDWARE_PATH)/kernel/patches/build-soong.patch.
 include $(DASH_HARDWARE_PATH)/kernel/BoardConfig.mk
 include $(DASH_HARDWARE_PATH)/boot/BoardConfig.mk
 
 # Keep Lineage's native UAPI-only Kleaf target. Soong owns the kernel image.
+BOARD_USES_SOONG_KERNEL := true
 TARGET_KERNEL_SOURCE := $(DASH_KERNEL_WORKSPACE)/kernel_device_modules-6.6
 TARGET_KERNEL_PLATFORM_TARGET := kernel
 include $(DASH_KERNEL_WORKSPACE)/build/bazel_mgk_rules/android/config.mk
@@ -39,10 +38,13 @@ TARGET_COPY_OUT_ODM := odm
 TARGET_COPY_OUT_SYSTEM_DLKM := system_dlkm
 TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
 TARGET_COPY_OUT_ODM_DLKM := odm_dlkm
+BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE := erofs
 
 BOARD_USES_METADATA_PARTITION := true
 
-# List only the ROM-owned images in the partial payload.
+# Update only ROM-owned partitions; partial payloads preserve stock partitions.
 AB_OTA_UPDATER := true
 AB_OTA_PARTITIONS := \
     boot \
@@ -80,6 +82,7 @@ SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += \
 
 include $(DASH_HARDWARE_PATH)/BoardConfig.mk
 
+include $(DEVICE_PATH)/display/brightness/BoardConfig.mk
 include $(DEVICE_PATH)/fod/BoardConfig.mk
 include $(DASH_HARDWARE_PATH)/power/BoardConfig.mk
 include $(DASH_HARDWARE_PATH)/ims/BoardConfig.mk

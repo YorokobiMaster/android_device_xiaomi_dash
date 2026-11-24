@@ -27,7 +27,7 @@ $(call inherit-product-if-exists, vendor/xiaomi/dash-miuicamera/miuicamera.mk)
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
 PRODUCT_USE_DYNAMIC_PARTITION_SIZE := true
 
-# Keep the stock super layout; build partition images rather than super.img.
+# A partial OTA updates the stock super layout in place.
 PRODUCT_BUILD_SUPER_PARTITION := false
 
 # Match the stock payload's zstd / COW v2 format.

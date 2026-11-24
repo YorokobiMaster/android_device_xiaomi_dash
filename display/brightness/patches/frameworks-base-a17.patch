@@ -1,0 +1,1263 @@
+diff --git a/core/res/res/values/config.xml b/core/res/res/values/config.xml
+index a19202ff1683b2a5a3db8935ef41f9c003be0c36..f9efbe52bd2c238694f66bec391f2dc8bb866483 100644
+--- a/core/res/res/values/config.xml
++++ b/core/res/res/values/config.xml
+@@ -6120,6 +6120,11 @@
+          auto-brightness. If unset, then it just gets the default sensor of type TYPE_LIGHT. -->
+     <string name="config_displayLightSensorType" translatable="false" />
+
++    <!-- Optional system-server device policies for the default internal display. -->
++    <string name="config_deviceAmbientPolicy" translatable="false" />
++    <string name="config_deviceBrightnessPolicy" translatable="false" />
++    <string name="config_deviceBrightnessRampPolicy" translatable="false" />
++
+     <!-- Whether or not to enable automatic heap dumps for the system server on debuggable builds. -->
+     <bool name="config_debugEnableAutomaticSystemServerHeapDumps">false</bool>
+
+diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
+index f20a2b6a0e74fe8155c33d73ff446a4c47273f80..ba4884d45f8a4ab4a2dcb6efc2d9455ce9e72e75 100644
+--- a/core/res/res/values/symbols.xml
++++ b/core/res/res/values/symbols.xml
+@@ -4758,6 +4758,9 @@
+
+   <!-- For Auto-Brightness -->
+   <java-symbol type="string" name="config_displayLightSensorType" />
++  <java-symbol type="string" name="config_deviceAmbientPolicy" />
++  <java-symbol type="string" name="config_deviceBrightnessPolicy" />
++  <java-symbol type="string" name="config_deviceBrightnessRampPolicy" />
+
+   <java-symbol type="dimen" name="notification_min_height" />
+
+diff --git a/services/core/java/com/android/server/display/AutomaticBrightnessController.java b/services/core/java/com/android/server/display/AutomaticBrightnessController.java
+index 858299ba2cd0a764a7db965c9cb5d433a252da3f..8f5e896514389fc475cafdb83d5c4cd0a81e6cc6 100644
+--- a/services/core/java/com/android/server/display/AutomaticBrightnessController.java
++++ b/services/core/java/com/android/server/display/AutomaticBrightnessController.java
+@@ -206,7 +206,9 @@ public class AutomaticBrightnessController {
+
+     // The ambient light level threshold at which to brighten or darken the screen.
+     private float mAmbientBrighteningThreshold;
++    private float mAmbientSmallBrighteningThreshold;
+     private float mAmbientDarkeningThreshold;
++    private long mSmallBrighteningLightDebounceConfig;
+
+     // The last brightness value prior to passing the darkening or brightening threshold.
+     private float mPreThresholdBrightness;
+@@ -292,6 +294,16 @@ public class AutomaticBrightnessController {
+
+     private boolean mAutoBrightnessOneShot;
+
++    private DeviceAmbientPolicy mDeviceAmbientPolicy;
++    private boolean mDeviceAmbientPolicyActive;
++    private boolean mDeviceAmbientPolicyFailed;
++    private boolean mDeviceAmbientPolicySession;
++    private RuntimeException mDeviceAmbientPolicyFailure;
++    private boolean mDeviceOneShotRequested;
++    private int mLightSensorGeneration;
++    private long mLightSensorSessionStart;
++    private long mLastPrimaryEventTime = Long.MIN_VALUE;
++
+     AutomaticBrightnessController(Callbacks callbacks, Looper looper,
+             SensorManager sensorManager, Sensor lightSensor,
+             SparseArray<BrightnessMappingStrategy> brightnessMappingStrategyMap,
+@@ -481,6 +493,8 @@ public class AutomaticBrightnessController {
+             prepareBrightnessAdjustmentSample();
+         }
+         changed |= setLightSensorEnabled(enable);
++        mDeviceOneShotRequested = autoBrightnessOneShot;
++        updateDeviceAmbientPolicyState();
+
+         boolean isBrightnessThrottled = mBrightnessClamperController.isThrottled();
+         if (mIsBrightnessThrottled != isBrightnessThrottled) {
+@@ -498,6 +512,155 @@ public class AutomaticBrightnessController {
+
+     public void stop() {
+         setLightSensorEnabled(false);
++        updateDeviceAmbientPolicyState();
++    }
++
++    /** Installs an estimator only for the display selected by DisplayPowerController. */
++    public void setDeviceAmbientPolicy(DeviceAmbientPolicy policy) {
++        if (mDeviceAmbientPolicy != null) {
++            throw new IllegalStateException("Device ambient policy already installed");
++        }
++        mDeviceAmbientPolicy = policy;
++        policy.setCallbacks(new DeviceAmbientPolicy.Callbacks() {
++            @Override
++            public void applyAmbientLux(int event, float lux, boolean needUpdateLux,
++                    boolean needUpdateBrightness, float mainThresholdLux) {
++                applyDeviceAmbientLux(event, lux, needUpdateLux, needUpdateBrightness,
++                        mainThresholdLux);
++            }
++
++            @Override
++            public void reportFailure(RuntimeException failure) {
++                failDeviceAmbientPolicy(failure);
++            }
++
++            @Override
++            public float getAmbientLux() {
++                return mAmbientLux;
++            }
++        });
++        updateDeviceAmbientPolicyState();
++    }
++
++    private void updateDeviceAmbientPolicyState() {
++        final boolean session = mDeviceAmbientPolicy != null && mLightSensorEnabled
++                && mDisplayState == Display.STATE_ON && isInteractivePolicy(mDisplayPolicy);
++        if (session && !mDeviceAmbientPolicySession && mDeviceAmbientPolicyFailed) {
++            // A new screen-on session retries a previously failed device policy once.
++            mDeviceAmbientPolicyFailed = false;
++            mDeviceAmbientPolicyFailure = null;
++        }
++        mDeviceAmbientPolicySession = session;
++        final boolean active = session && !mDeviceAmbientPolicyFailed
++                && !mDeviceOneShotRequested
++                && getMode() == AUTO_BRIGHTNESS_MODE_DEFAULT;
++        if (active == mDeviceAmbientPolicyActive) return;
++        mDeviceAmbientPolicyActive = active;
++        resetAmbientEstimator();
++        try {
++            if (active) {
++                mDeviceAmbientPolicy.start(mClock.uptimeMillis());
++            } else {
++                mDeviceAmbientPolicy.stop();
++            }
++        } catch (RuntimeException e) {
++            failDeviceAmbientPolicy(e);
++        }
++    }
++
++    private void resetAmbientEstimator() {
++        mHandler.removeMessages(MSG_UPDATE_AMBIENT_LUX);
++        mAmbientLightRingBuffer.clear();
++        mAmbientLuxValid = false;
++        mRecentLightSamples = 0;
++        mLastPrimaryEventTime = Long.MIN_VALUE;
++        mLightSensorSessionStart = mClock.getSensorEventScaleTime();
++        // A new listener rejects queued callbacks from the previous estimator session.
++        mLightSensorGeneration++;
++        if (mLightSensorEnabled) {
++            mSensorManager.unregisterListener(mLightSensorListener);
++            mLightSensorListener = createLightSensorListener(mLightSensorGeneration);
++            mSensorManager.registerListener(mLightSensorListener, mLightSensor,
++                    mCurrentLightSensorRate * 1000, mHandler);
++        }
++    }
++
++    private void failDeviceAmbientPolicy(RuntimeException failure) {
++        Slog.e(TAG, "Device ambient estimator failed; waiting for fresh primary ALS", failure);
++        mDeviceAmbientPolicyFailed = true;
++        mDeviceAmbientPolicyActive = false;
++        mDeviceAmbientPolicyFailure = failure;
++        try {
++            mDeviceAmbientPolicy.stop();
++        } catch (RuntimeException cleanupFailure) {
++            Slog.e(TAG, "Device ambient estimator cleanup failed", cleanupFailure);
++        }
++        resetAmbientEstimator();
++    }
++
++    private void applyDeviceAmbientLux(int event, float lux, boolean needUpdateLux,
++            boolean needUpdateBrightness, float mainThresholdLux) {
++        if (Float.isNaN(lux)) {
++            if (!Float.isNaN(mainThresholdLux)) updateMainAmbientThresholds(mainThresholdLux);
++            return;
++        }
++        if (!Float.isFinite(lux) || lux < 0) {
++            throw new IllegalArgumentException("Invalid device ambient estimate: " + lux);
++        }
++        final float previousMainBrighteningThreshold = mAmbientBrighteningThreshold;
++        final float previousMainDarkeningThreshold = mAmbientDarkeningThreshold;
++        mPreThresholdLux = needUpdateLux ? mAmbientLux : mPreThresholdLux;
++        if (needUpdateLux) {
++            setAmbientLux(lux);
++            mAmbientLuxValid = true;
++        }
++        if (!Float.isNaN(mainThresholdLux)) {
++            updateMainAmbientThresholds(mainThresholdLux);
++        } else if (needUpdateLux) {
++            // ASSIST owns the final lux in this branch, but stock leaves the MAIN hysteresis
++            // thresholds anchored to the last main estimate.
++            mAmbientBrighteningThreshold = previousMainBrighteningThreshold;
++            mAmbientDarkeningThreshold = previousMainDarkeningThreshold;
++        }
++        if (needUpdateLux && needUpdateBrightness) {
++            updateAutoBrightness(true /* sendUpdate */, false /* isManuallySet */);
++        }
++    }
++
++    private void applyDeviceAmbientEvaluation(DeviceAmbientPolicy.Evaluation evaluation) {
++        if (evaluation == null) throw new IllegalArgumentException("Null device ambient result");
++        applyDeviceAmbientLux(evaluation.event, evaluation.lux, evaluation.needUpdateLux,
++                evaluation.needUpdateBrightness, evaluation.mainThresholdLux);
++    }
++
++    private void updateMainAmbientThresholds(float lux) {
++        if (lux < 0 || !Float.isFinite(lux)) return;
++        DeviceAmbientPolicy.Thresholds deviceThresholds = null;
++        if (mDeviceAmbientPolicyActive && mDeviceAmbientPolicy != null) {
++            deviceThresholds = mDeviceAmbientPolicy.getMainThresholds(lux);
++        }
++        if (deviceThresholds != null) {
++            mAmbientBrighteningThreshold = deviceThresholds.brightening();
++            mAmbientSmallBrighteningThreshold = deviceThresholds.smallBrightening();
++            mAmbientDarkeningThreshold = deviceThresholds.darkening();
++            mSmallBrighteningLightDebounceConfig =
++                    deviceThresholds.smallBrighteningDebounceMillis();
++            return;
++        }
++        if (isInIdleMode()) {
++            mAmbientBrighteningThreshold = mAmbientBrightnessThresholdsIdle
++                    .getBrighteningThreshold(lux);
++            mAmbientDarkeningThreshold = mAmbientBrightnessThresholdsIdle
++                    .getDarkeningThreshold(lux);
++        } else {
++            mAmbientBrighteningThreshold = mAmbientBrightnessThresholds
++                    .getBrighteningThreshold(lux);
++            mAmbientDarkeningThreshold = mAmbientBrightnessThresholds
++                    .getDarkeningThreshold(lux);
++        }
++        mAmbientSmallBrighteningThreshold = mAmbientBrighteningThreshold;
++        mSmallBrighteningLightDebounceConfig = isInIdleMode()
++                ? mBrighteningLightDebounceConfigIdle : mBrighteningLightDebounceConfig;
+     }
+
+     public boolean hasUserDataPoints() {
+@@ -677,6 +840,15 @@ public class AutomaticBrightnessController {
+         ipw.println("mAmbientLightRingBuffer=" + mAmbientLightRingBuffer);
+         ipw.println("mScreenAutoBrightness=" + mScreenAutoBrightness);
+         ipw.println("mDisplayPolicy=" + DisplayPowerRequest.policyToString(mDisplayPolicy));
++        ipw.println("mDeviceAmbientPolicy=" + (mDeviceAmbientPolicy != null
++                ? mDeviceAmbientPolicy.getClass().getName() : "null"));
++        ipw.println("mDeviceAmbientPolicyActive=" + mDeviceAmbientPolicyActive);
++        ipw.println("mDeviceAmbientPolicyFailed=" + mDeviceAmbientPolicyFailed);
++        ipw.println("mDeviceAmbientPolicyFailure=" + mDeviceAmbientPolicyFailure);
++        ipw.println("mLightSensorGeneration=" + mLightSensorGeneration);
++        if (mDeviceAmbientPolicy != null) {
++            mDeviceAmbientPolicy.dump(ipw);
++        }
+         ipw.println("mShortTermModel=");
+
+         mShortTermModel.dump(ipw);
+@@ -736,6 +908,9 @@ public class AutomaticBrightnessController {
+             if (!mLightSensorEnabled) {
+                 mLightSensorEnabled = true;
+                 mLightSensorEnableTime = mClock.uptimeMillis();
++                mLightSensorSessionStart = mClock.getSensorEventScaleTime();
++                mLastPrimaryEventTime = Long.MIN_VALUE;
++                mLightSensorListener = createLightSensorListener(++mLightSensorGeneration);
+                 mCurrentLightSensorRate = mInitialLightSensorRate;
+                 registerForegroundAppUpdater();
+                 mSensorManager.registerListener(mLightSensorListener, mLightSensor,
+@@ -744,6 +919,7 @@ public class AutomaticBrightnessController {
+             }
+         } else if (mLightSensorEnabled) {
+             mLightSensorEnabled = false;
++            mLightSensorGeneration++;
+             mAmbientLuxValid = !mResetAmbientLuxAfterWarmUpConfig;
+             if (!mAmbientLuxValid) {
+                 mPreThresholdLux = INVALID_LUX;
+@@ -893,16 +1069,31 @@ public class AutomaticBrightnessController {
+     }
+
+     private long nextAmbientLightBrighteningTransition(long time) {
++        return nextAmbientLightBrighteningTransition(time, mAmbientBrighteningThreshold,
++                isInIdleMode()
++                        ? mBrighteningLightDebounceConfigIdle
++                        : mBrighteningLightDebounceConfig);
++    }
++
++    private long nextMainLightBrighteningTransition(long time) {
++        final boolean small = mFastAmbientLux < mAmbientBrighteningThreshold;
++        return nextAmbientLightBrighteningTransition(time,
++                small ? mAmbientSmallBrighteningThreshold : mAmbientBrighteningThreshold,
++                small ? mSmallBrighteningLightDebounceConfig
++                        : mBrighteningLightDebounceConfig);
++    }
++
++    private long nextAmbientLightBrighteningTransition(long time, float threshold,
++            long debounce) {
+         final int N = mAmbientLightRingBuffer.size();
+         long earliestValidTime = time;
+         for (int i = N - 1; i >= 0; i--) {
+-            if (mAmbientLightRingBuffer.getLux(i) <= mAmbientBrighteningThreshold) {
++            if (mAmbientLightRingBuffer.getLux(i) <= threshold) {
+                 break;
+             }
+             earliestValidTime = mAmbientLightRingBuffer.getTime(i);
+         }
+-        return earliestValidTime + (isInIdleMode()
+-                ? mBrighteningLightDebounceConfigIdle : mBrighteningLightDebounceConfig);
++        return earliestValidTime + debounce;
+     }
+
+     private long nextAmbientLightDarkeningTransition(long time) {
+@@ -925,6 +1116,8 @@ public class AutomaticBrightnessController {
+     }
+
+     private void updateAmbientLux(long time) {
++        if (!mLightSensorEnabled) return;
++        if (mAmbientLightRingBuffer.size() == 0) return;
+         // If the light sensor was just turned on then immediately update our initial
+         // estimate of the current ambient light level.
+         if (!mAmbientLuxValid) {
+@@ -940,18 +1133,44 @@ public class AutomaticBrightnessController {
+                         timeWhenSensorWarmedUp);
+                 return;
+             }
+-            setAmbientLux(calculateAmbientLux(time, mAmbientLightHorizonShort));
++            mSlowAmbientLux = calculateAmbientLux(time, mAmbientLightHorizonLong);
++            mFastAmbientLux = calculateAmbientLux(time, mAmbientLightHorizonShort);
++            boolean updateBrightnessAfterInitialization = false;
++            if (mDeviceAmbientPolicyActive) {
++                try {
++                    updateMainAmbientThresholds(mFastAmbientLux);
++                    DeviceAmbientPolicy.Evaluation evaluation =
++                            mDeviceAmbientPolicy.onMainAmbientLux(convertToUptime(time),
++                                    mSlowAmbientLux,
++                                    mFastAmbientLux, mAmbientBrighteningThreshold,
++                                    mAmbientSmallBrighteningThreshold,
++                                    mAmbientDarkeningThreshold,
++                                    convertToUptime(time), convertToUptime(time), true);
++                    applyDeviceAmbientEvaluation(evaluation);
++                    // Stock seeds the dual-sensor lux with (true, false), then performs the
++                    // initial mapping only when MAIN won initialization.
++                    updateBrightnessAfterInitialization = evaluation.needUpdateLux
++                            && !evaluation.needUpdateBrightness;
++                } catch (RuntimeException e) {
++                    failDeviceAmbientPolicy(e);
++                    return;
++                }
++            } else {
++                setAmbientLux(mFastAmbientLux);
++            }
+             mAmbientLuxValid = true;
+             if (mLoggingEnabled) {
+                 Slog.d(TAG, "updateAmbientLux: Initializing: " +
+                         "mAmbientLightRingBuffer=" + mAmbientLightRingBuffer + ", " +
+                         "mAmbientLux=" + mAmbientLux);
+             }
+-            updateAutoBrightness(true /* sendUpdate */, false /* isManuallySet */);
++            if (!mDeviceAmbientPolicyActive || updateBrightnessAfterInitialization) {
++                updateAutoBrightness(true /* sendUpdate */, false /* isManuallySet */);
++            }
+         }
+
+-        long nextBrightenTransition = nextAmbientLightBrighteningTransition(time);
+-        long nextDarkenTransition = nextAmbientLightDarkeningTransition(time);
++        long nextBrightenTransition;
++        long nextDarkenTransition;
+         // Essentially, we calculate both a slow ambient lux, to ensure there's a true long-term
+         // change in lighting conditions, and a fast ambient lux to determine what the new
+         // brightness situation is since the slow lux can be quite slow to converge.
+@@ -962,15 +1181,36 @@ public class AutomaticBrightnessController {
+         // the fast value still.
+         mSlowAmbientLux = calculateAmbientLux(time, mAmbientLightHorizonLong);
+         mFastAmbientLux = calculateAmbientLux(time, mAmbientLightHorizonShort);
++        nextBrightenTransition = mDeviceAmbientPolicyActive
++                ? nextMainLightBrighteningTransition(time)
++                : nextAmbientLightBrighteningTransition(time);
++        nextDarkenTransition = nextAmbientLightDarkeningTransition(time);
+
+-        if ((mSlowAmbientLux >= mAmbientBrighteningThreshold
++        if (mDeviceAmbientPolicyActive || (mSlowAmbientLux >= mAmbientBrighteningThreshold
+                 && mFastAmbientLux >= mAmbientBrighteningThreshold
+                 && nextBrightenTransition <= time)
+                 || (mSlowAmbientLux <= mAmbientDarkeningThreshold
+                         && mFastAmbientLux <= mAmbientDarkeningThreshold
+                         && nextDarkenTransition <= time)) {
+-            mPreThresholdLux = mAmbientLux;
+-            setAmbientLux(mFastAmbientLux);
++            if (mDeviceAmbientPolicyActive) {
++                try {
++                    DeviceAmbientPolicy.Evaluation evaluation =
++                            mDeviceAmbientPolicy.onMainAmbientLux(convertToUptime(time),
++                                    mSlowAmbientLux,
++                                    mFastAmbientLux, mAmbientBrighteningThreshold,
++                                    mAmbientSmallBrighteningThreshold,
++                                    mAmbientDarkeningThreshold,
++                                    convertToUptime(nextBrightenTransition),
++                                    convertToUptime(nextDarkenTransition), false);
++                    applyDeviceAmbientEvaluation(evaluation);
++                } catch (RuntimeException e) {
++                    failDeviceAmbientPolicy(e);
++                    return;
++                }
++            } else {
++                mPreThresholdLux = mAmbientLux;
++                setAmbientLux(mFastAmbientLux);
++            }
+             if (mLoggingEnabled) {
+                 Slog.d(TAG, "updateAmbientLux: "
+                         + ((mFastAmbientLux > mPreThresholdLux) ? "Brightened" : "Darkened") + ": "
+@@ -979,8 +1219,12 @@ public class AutomaticBrightnessController {
+                         + "mAmbientLightRingBuffer=" + mAmbientLightRingBuffer + ", "
+                         + "mAmbientLux=" + mAmbientLux);
+             }
+-            updateAutoBrightness(true /* sendUpdate */, false /* isManuallySet */);
+-            nextBrightenTransition = nextAmbientLightBrighteningTransition(time);
++            if (!mDeviceAmbientPolicyActive) {
++                updateAutoBrightness(true /* sendUpdate */, false /* isManuallySet */);
++            }
++            nextBrightenTransition = mDeviceAmbientPolicyActive
++                    ? nextMainLightBrighteningTransition(time)
++                    : nextAmbientLightBrighteningTransition(time);
+             nextDarkenTransition = nextAmbientLightDarkeningTransition(time);
+         }
+         long nextTransitionTime = Math.min(nextDarkenTransition, nextBrightenTransition);
+@@ -1251,6 +1495,7 @@ public class AutomaticBrightnessController {
+             resetShortTermModel();
+             mCurrentBrightnessMapper = mBrightnessMappingStrategyMap.get(mode);
+         }
++        updateDeviceAmbientPolicyState();
+         if (sendUpdate) {
+             update();
+         } else {
+@@ -1450,26 +1695,34 @@ public class AutomaticBrightnessController {
+         }
+     }
+
+-    private final SensorEventListener mLightSensorListener = new SensorEventListener() {
+-        @Override
+-        public void onSensorChanged(SensorEvent event) {
+-            if (mLightSensorEnabled) {
+-                // The time received from the sensor is in nano seconds, hence changing it to ms
++    private SensorEventListener mLightSensorListener = createLightSensorListener(0);
++
++    private SensorEventListener createLightSensorListener(int generation) {
++        return new SensorEventListener() {
++            @Override
++            public void onSensorChanged(SensorEvent event) {
++                if (!mLightSensorEnabled || generation != mLightSensorGeneration) return;
+                 final long time = TimeUnit.NANOSECONDS.toMillis(event.timestamp);
++                if (event.values.length == 0) return;
+                 final float lux = event.values[0];
+                 if (Float.isNaN(lux)) {
+                     Slog.e(TAG, "Light sensor reported NaN lux value, ignoring.");
+                     return;
+                 }
++                if (!Float.isFinite(lux) || lux < 0) return;
++                if (mDeviceAmbientPolicy != null && (time < mLightSensorSessionStart
++                        || time < mLastPrimaryEventTime
++                        || time > mClock.getSensorEventScaleTime())) return;
++                mLastPrimaryEventTime = time;
+                 handleLightSensorEvent(time, lux);
+             }
+-        }
+
+-        @Override
+-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+-            // Not used.
+-        }
+-    };
++            @Override
++            public void onAccuracyChanged(Sensor sensor, int accuracy) {
++                // Not used.
++            }
++        };
++    }
+
+     // Call back whenever the tasks stack changes, which includes tasks being created, removed, and
+     // moving to top.
+diff --git a/services/core/java/com/android/server/display/DeviceAmbientPolicy.java b/services/core/java/com/android/server/display/DeviceAmbientPolicy.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..11e028055a314e02c6ca5154ff91119b5f46b26d
+--- /dev/null
++++ b/services/core/java/com/android/server/display/DeviceAmbientPolicy.java
+@@ -0,0 +1,73 @@
++/*
++ * Copyright (C) 2026 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.server.display;
++
++import java.io.PrintWriter;
++
++/**
++ * Device ambient estimator, called only on the automatic brightness handler.
++ * The controller retains sensor ownership, the evaluation timer, mapping and short-term model.
++ * Implementations must not subscribe in their constructor. All times here are uptime millis.
++ * @hide
++ */
++public interface DeviceAmbientPolicy {
++    /** ABC-side sink used by the policy's independent assist timer. */
++    interface Callbacks {
++        void applyAmbientLux(int event, float lux, boolean needUpdateLux,
++                boolean needUpdateBrightness, float mainThresholdLux);
++        void reportFailure(RuntimeException failure);
++        float getAmbientLux();
++    }
++
++    /** Optional device threshold contract; ABC still owns threshold timing and application. */
++    record Thresholds(float brightening, float smallBrightening, float darkening,
++            long smallBrighteningDebounceMillis) {}
++
++    void start(long uptimeMillis);
++    void stop();
++    /** Receives ABC-owned main estimates; the policy returns arbitration flags only. */
++    default Evaluation onMainAmbientLux(long uptimeMillis, float mainSlowLux, float mainFastLux,
++            float mainBrighteningThreshold, float mainSmallBrighteningThreshold,
++            float mainDarkeningThreshold, long nextBrighteningTransition,
++            long nextDarkeningTransition, boolean initial) {
++        return new Evaluation(0, Float.NaN, false, false, Float.NaN, null);
++    }
++    /** Installs the callback used only for assist-channel decisions. */
++    default void setCallbacks(Callbacks callbacks) {}
++    default Thresholds getMainThresholds(float lux) { return null; }
++    /** Runs on the dumpsys thread; implementations must dump from an immutable snapshot. */
++    default void dump(PrintWriter writer) {}
++
++    /** NaN lux retains the current estimate. */
++    final class Evaluation {
++        public final int event;
++        public final float lux;
++        public final boolean needUpdateLux;
++        public final boolean needUpdateBrightness;
++        public final float mainThresholdLux;
++        public final String reason;
++
++        public Evaluation(int event, float lux, boolean needUpdateLux,
++                boolean needUpdateBrightness, float mainThresholdLux, String reason) {
++            this.event = event;
++            this.lux = lux;
++            this.needUpdateLux = needUpdateLux;
++            this.needUpdateBrightness = needUpdateBrightness;
++            this.mainThresholdLux = mainThresholdLux;
++            this.reason = reason;
++        }
++    }
++}
+diff --git a/services/core/java/com/android/server/display/DeviceBrightnessPolicy.java b/services/core/java/com/android/server/display/DeviceBrightnessPolicy.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..8fdff0d9aa0523231256a662fb3c81931c956fb2
+--- /dev/null
++++ b/services/core/java/com/android/server/display/DeviceBrightnessPolicy.java
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (C) 2026 The Android Open Source Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.server.display;
++
++import java.io.PrintWriter;
++
++/** Device thermal/content inputs; never writes display brightness itself.
++ *
++ * Implementations have a public (Context, Handler, Runnable onChanged) constructor. All methods
++ * run on the display handler; blocking input work belongs on an implementation-owned worker.
++ * The constructor must not subscribe. onChanged requests a DPC evaluation on the display handler.
++ */
++public interface DeviceBrightnessPolicy {
++    void update(boolean interactive, boolean automatic, float ambientLux,
++            boolean hdrLayerPresent);
++    Limits getLimits();
++    /** Vendor Dolby processing can produce SDR-tagged buffers that still need HDR backlight. */
++    default boolean isDolbyVisionActive() { return false; }
++    void stop();
++    void dump(PrintWriter writer);
++
++    /** Thermal/SDR limits are nits; the HDR limit is framework brightness. Infinity is
++     * explicitly unbounded and NaN is unavailable. HBM authorization remains owned by
++     * HighBrightnessModeController. */
++    record Limits(float thermalMaxNits, float sdrMaxNits, float hdrMaxBrightness) {
++        public static final Limits UNAVAILABLE =
++                new Limits(Float.NaN, Float.NaN, Float.NaN);
++    }
++}
+diff --git a/services/core/java/com/android/server/display/DeviceBrightnessRampPolicy.java b/services/core/java/com/android/server/display/DeviceBrightnessRampPolicy.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..5388acb1cb569e2075cf13e5743081e53e2ed1d3
+--- /dev/null
++++ b/services/core/java/com/android/server/display/DeviceBrightnessRampPolicy.java
+@@ -0,0 +1,27 @@
++/*
++ * Copyright (C) 2026 The Android Open Source Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.server.display;
++
++/**
++ * Optional device-specific rate policy for an ordinary automatic-brightness ramp.
++ *
++ * <p>Implementations are constructed by {@link DisplayPowerController} with
++ * {@code (Context, DisplayDeviceConfig)}. A non-finite or non-positive rate declines the current
++ * transition/frame and leaves the generic {@link RampAnimator} behavior in effect.</p>
++ */
++public interface DeviceBrightnessRampPolicy {
++    /**
++     * Returns a linear-brightness-per-second rate for the requested channel, or {@link Float#NaN}
++     * to decline the transition/frame. This is called every animation frame and intentionally
++     * returns a primitive to avoid allocation in the frame loop.
++     *
++     * @param propertyName the animated brightness channel/property identity
++     * @param transitionStartLinearBrightness the linear brightness at transition start
++     * @param currentLinearBrightness the current linear brightness for this frame
++     * @param targetLinearBrightness the exact linear brightness target
++     */
++    float getRate(String propertyName, float transitionStartLinearBrightness,
++            float currentLinearBrightness, float targetLinearBrightness);
++}
+diff --git a/services/core/java/com/android/server/display/DisplayPowerController.java b/services/core/java/com/android/server/display/DisplayPowerController.java
+index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..9b8e2a278815f63bcee463d0bf735513f1494e8d 100644
+--- a/services/core/java/com/android/server/display/DisplayPowerController.java
++++ b/services/core/java/com/android/server/display/DisplayPowerController.java
+@@ -393,6 +393,9 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+     private final BrightnessRangeController mBrightnessRangeController;
+
+     private final BrightnessClamperController mBrightnessClamperController;
++    private DeviceBrightnessPolicy mDeviceBrightnessPolicy;
++    private boolean mDeviceBrightnessPolicyConfigured;
++    private DeviceBrightnessRampPolicy mDeviceBrightnessRampPolicy;
+
+     private final Runnable mOnBrightnessChangeRunnable;
+
+@@ -981,6 +984,33 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+     }
+
+     private void initialize(int displayState) {
++        if (mDisplayId == Display.DEFAULT_DISPLAY && mIsDisplayInternal) {
++            String name = mContext.getString(R.string.config_deviceBrightnessPolicy);
++            mDeviceBrightnessPolicyConfigured = !name.isEmpty();
++            if (mDeviceBrightnessPolicyConfigured) {
++                try {
++                    mDeviceBrightnessPolicy = (DeviceBrightnessPolicy) mContext.getClassLoader()
++                            .loadClass(name).getConstructor(Context.class, Handler.class,
++                                    Runnable.class)
++                            .newInstance(mContext, mHandler, (Runnable) this::sendUpdatePowerState);
++                } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
++                    Slog.e(mTag, "Unable to load device brightness policy; HBM disabled", e);
++                }
++            }
++        }
++        if (mDisplayId == Display.DEFAULT_DISPLAY && mIsDisplayInternal) {
++            String name = mContext.getString(R.string.config_deviceBrightnessRampPolicy);
++            if (!name.isEmpty()) {
++                try {
++                    mDeviceBrightnessRampPolicy = (DeviceBrightnessRampPolicy) mContext
++                            .getClassLoader().loadClass(name)
++                            .getConstructor(Context.class, DisplayDeviceConfig.class)
++                            .newInstance(mContext, mDisplayDeviceConfig);
++                } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
++                    Slog.e(mTag, "Unable to load device brightness ramp policy", e);
++                }
++            }
++        }
+         mPowerState = mInjector.getDisplayPowerState(mBlanker,
+                 mColorFadeEnabled ? new ColorFade(mDisplayId) : null, mDisplayId, displayState);
+
+@@ -1162,6 +1192,20 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+                     screenBrightnessThresholdsIdle, mContext, mBrightnessRangeController,
+                     mBrightnessClamperController, mDisplayDeviceConfig.getAmbientHorizonShort(),
+                     mDisplayDeviceConfig.getAmbientHorizonLong(), userLux, userNits, mFlags);
++            if (mDisplayId == Display.DEFAULT_DISPLAY && mIsDisplayInternal) {
++                String name = context.getString(R.string.config_deviceAmbientPolicy);
++                if (!name.isEmpty()) {
++                    try {
++                        DeviceAmbientPolicy policy = (DeviceAmbientPolicy) context.getClassLoader()
++                                .loadClass(name).getConstructor(Context.class, SensorManager.class,
++                                        Handler.class)
++                                .newInstance(context, mSensorManager, handler);
++                        mAutomaticBrightnessController.setDeviceAmbientPolicy(policy);
++                    } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
++                        Slog.e(mTag, "Unable to load device ambient policy", e);
++                    }
++                }
++            }
+             mDisplayBrightnessController.setUpAutoBrightness(
+                     mAutomaticBrightnessController, mSensorManager, mDisplayDeviceConfig, mHandler,
+                     defaultModeBrightnessMapper, mIsEnabled, mLeadDisplayId);
+@@ -1172,6 +1216,58 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+         }
+     }
+
++    private void updateDeviceBrightnessCaps(int state, float ambientLux) {
++        if (!mDeviceBrightnessPolicyConfigured) return;
++        DeviceBrightnessPolicy.Limits limits = DeviceBrightnessPolicy.Limits.UNAVAILABLE;
++        boolean dolbyVisionActive = false;
++        if (mDeviceBrightnessPolicy != null) {
++            try {
++                mDeviceBrightnessPolicy.update(state == Display.STATE_ON,
++                        mAutomaticBrightnessStrategy.isAutoBrightnessEnabled(), ambientLux,
++                        mBrightnessClamperController.isHdrLayerPresent());
++                limits = mDeviceBrightnessPolicy.getLimits();
++                dolbyVisionActive = mDeviceBrightnessPolicy.isDolbyVisionActive();
++            } catch (RuntimeException e) {
++                Slog.e(mTag, "Device brightness policy failed; device caps unavailable", e);
++                stopDeviceBrightnessPolicy();
++            }
++        }
++        mBrightnessClamperController.setDolbyVisionActive(dolbyVisionActive);
++        float normal = mBrightnessRangeController.getNormalBrightnessMax();
++        float thermal = deviceCapFromNits(limits.thermalMaxNits(), PowerManager.BRIGHTNESS_MAX);
++        float sdr = deviceCapFromNits(limits.sdrMaxNits(), PowerManager.BRIGHTNESS_MAX);
++        float hdr = deviceCapFromBrightness(limits.hdrMaxBrightness(), normal);
++        mBrightnessClamperController.setDeviceBrightnessCaps(thermal, sdr, hdr);
++    }
++
++    private void stopDeviceBrightnessPolicy() {
++        DeviceBrightnessPolicy policy = mDeviceBrightnessPolicy;
++        mDeviceBrightnessPolicy = null;
++        if (policy == null) return;
++        try {
++            policy.stop();
++        } catch (RuntimeException e) {
++            Slog.e(mTag, "Device brightness policy cleanup failed", e);
++        }
++    }
++
++    private float deviceCapFromNits(float nits, float normal) {
++        return deviceCapFromNits(nits, normal, mDisplayDeviceConfig);
++    }
++
++    @VisibleForTesting
++    static float deviceCapFromNits(float nits, float normal, DisplayDeviceConfig config) {
++        if (nits == Float.POSITIVE_INFINITY) return PowerManager.BRIGHTNESS_MAX;
++        if (!Float.isFinite(nits) || nits < 0) return normal;
++        float cap = config.getBrightnessFromBacklight(config.getBacklightFromNits(nits));
++        return BrightnessUtils.isValidBrightnessValue(cap) ? cap : normal;
++    }
++
++    private float deviceCapFromBrightness(float brightness, float fallback) {
++        if (brightness == Float.POSITIVE_INFINITY) return PowerManager.BRIGHTNESS_MAX;
++        return BrightnessUtils.isValidBrightnessValue(brightness) ? brightness : fallback;
++    }
++
+     private void loadBrightnessRampRates() {
+         mBrightnessRampRateFastDecrease = mDisplayDeviceConfig.getBrightnessRampFastDecrease();
+         mBrightnessRampRateFastIncrease = mDisplayDeviceConfig.getBrightnessRampFastIncrease();
+@@ -1285,6 +1381,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+         mDisplayPowerProximityStateController.cleanup();
+         mBrightnessRangeController.stop();
+         mBrightnessClamperController.stop();
++        stopDeviceBrightnessPolicy();
+         mDisplayBrightnessReporter.stop();
+         mHandler.removeCallbacksAndMessages(null);
+
+@@ -1450,6 +1547,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+         // Note throttling effectively changes the allowed brightness range, so, similarly to HBM,
+         // we broadcast this change through setting.
+         final float unthrottledBrightnessState = rawBrightnessState;
++        updateDeviceBrightnessCaps(state, ambientLux);
+         DisplayBrightnessState clampedState = mBrightnessClamperController.clamp(
+                 displayBrightnessState, mPowerRequest,
+                 brightnessState, slowChange, /* displayState= */ state);
+@@ -1557,6 +1655,22 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+                 mBrightnessReasonTemp.addModifier(BrightnessReason.MODIFIER_HDR);
+             }
+
++            if (mDeviceBrightnessPolicyConfigured) {
++                // Legacy HBM HDR is calculated after native modifiers; do not let it escape
++                // the device or native thermal maximum. This does not alter FOD vendor extCmd.
++                animateValue = Math.min(animateValue, Math.min(clampedState.getMaxBrightness(),
++                        mBrightnessClamperController.getDeviceHdrBrightnessCap()));
++                hdrBrightness = animateValue;
++            }
++
++            if (clampedState.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET
++                    && mBrightnessClamperController.isDolbyVisionActive()
++                    && !mBrightnessClamperController.isHdrLayerPresent()) {
++                // Dolby's SDR-tagged output is already mapped for the panel. Keep SDR dimming
++                // at unity so SurfaceFlinger does not undo the vendor backlight boost.
++                sdrAnimateValue = animateValue;
++            }
++
+             // if doze or suspend state is requested, we want to finish brightnes animation fast
+             // to allow state animation to start
+             if (mPowerRequest.policy == POLICY_DOZE
+@@ -1607,7 +1721,17 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+                     } else {
+                         rampSpeed = mBrightnessRampRateFastDecrease;
+                     }
+-                    animateScreenBrightness(animateValue, sdrAnimateValue, rampSpeed);
++                    final boolean armDeviceRampPolicy = mDeviceBrightnessRampPolicy != null
++                            && mDisplayId == Display.DEFAULT_DISPLAY
++                            && mIsDisplayInternal
++                            && mBrightnessReasonTemp.getReason()
++                            == BrightnessReason.REASON_AUTOMATIC
++                            && mBrightnessReasonTemp.getModifier() == 0
++                            && slowChange
++                            && !isHdrOnlyChange;
++                    animateScreenBrightness(animateValue, sdrAnimateValue, rampSpeed,
++                            /* ignoreAnimationLimits = */false,
++                            armDeviceRampPolicy ? mDeviceBrightnessRampPolicy : null);
+                 }
+             }
+
+@@ -2193,14 +2317,23 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+
+     private void animateScreenBrightness(float target, float sdrTarget, float rate,
+             boolean ignoreAnimationLimits) {
++        animateScreenBrightness(target, sdrTarget, rate, ignoreAnimationLimits, null);
++    }
++
++    private void animateScreenBrightness(float target, float sdrTarget, float rate,
++            boolean ignoreAnimationLimits, @Nullable DeviceBrightnessRampPolicy rampPolicy) {
+         if (DEBUG) {
+             Slog.d(mTag, "Animating brightness: target=" + target + ", sdrTarget=" + sdrTarget
+                     + ", rate=" + rate);
+         }
+         float luxDelta = mAutomaticBrightnessController == null ? INVALID_LUX
+                 : mAutomaticBrightnessController.getLuxDelta();
+-        if (mScreenBrightnessRampAnimator.animateTo(target, sdrTarget, rate,
+-                ignoreAnimationLimits, luxDelta)) {
++        boolean changed = rampPolicy == null
++                ? mScreenBrightnessRampAnimator.animateTo(target, sdrTarget, rate,
++                        ignoreAnimationLimits, luxDelta)
++                : mScreenBrightnessRampAnimator.animateTo(target, sdrTarget, rate,
++                        ignoreAnimationLimits, luxDelta, rampPolicy);
++        if (changed) {
+             Trace.traceCounter(Trace.TRACE_TAG_POWER, "TargetScreenBrightness", (int) target);
+
+             String propertyKey = "debug.tracing.screen_brightness";
+@@ -2665,6 +2798,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+         if (mBrightnessClamperController != null) {
+             mBrightnessClamperController.dump(ipw);
+         }
++        if (mDeviceBrightnessPolicy != null) mDeviceBrightnessPolicy.dump(ipw);
+
+         pw.println();
+         if (mBrightnessRangeController != null) {
+diff --git a/services/core/java/com/android/server/display/RampAnimator.java b/services/core/java/com/android/server/display/RampAnimator.java
+index 1d8d0823f6c4e69cfcba6d5aa4270bfe831418cb..171b10190312fd7db9ad06ade67fcd1df4b96250 100644
+--- a/services/core/java/com/android/server/display/RampAnimator.java
++++ b/services/core/java/com/android/server/display/RampAnimator.java
+@@ -49,6 +49,10 @@ class RampAnimator<T> {
+     // target in linear space
+     private float mTargetLinearValue;
+     private float mRate;
++    @Nullable
++    private DeviceBrightnessRampPolicy mDeviceBrightnessRampPolicy;
++    private float mTransitionStartLinearValue;
++    private float mAnimatedLinearValue;
+     private float mAnimationIncreaseMaxTimeSecs;
+     private float mAnimationDecreaseMaxTimeSecs;
+
+@@ -117,6 +121,11 @@ class RampAnimator<T> {
+      */
+     boolean setAnimationTarget(float targetLinear, float rate, boolean ignoreAnimationLimits,
+             float luxDelta) {
++        return setAnimationTarget(targetLinear, rate, ignoreAnimationLimits, luxDelta, null);
++    }
++
++    boolean setAnimationTarget(float targetLinear, float rate, boolean ignoreAnimationLimits,
++            float luxDelta, @Nullable DeviceBrightnessRampPolicy deviceBrightnessRampPolicy) {
+         float maxIncreaseTimeSecs = 0;
+         float maxDecreaseTimeSecs = 0;
+         if (!ignoreAnimationLimits) {
+@@ -131,12 +140,20 @@ class RampAnimator<T> {
+                 maxDecreaseTimeSecs = mAnimationDecreaseMaxTimeSecs;
+             }
+         }
+-        return setAnimationTarget(targetLinear, rate, maxIncreaseTimeSecs, maxDecreaseTimeSecs);
++        return setAnimationTarget(targetLinear, rate, maxIncreaseTimeSecs, maxDecreaseTimeSecs,
++                deviceBrightnessRampPolicy);
+     }
+
+     private boolean setAnimationTarget(float targetLinear, float rate,
+-            float maxIncreaseTimeSecs, float maxDecreaseTimeSecs) {
+-        mCurrentRampGamma = targetLinear > BrightnessUtils.convertGammaToLinear(mCurrentValue)
++            float maxIncreaseTimeSecs, float maxDecreaseTimeSecs,
++            @Nullable DeviceBrightnessRampPolicy deviceBrightnessRampPolicy) {
++        final boolean rebaseDeviceRamp = mDeviceBrightnessRampPolicy != null
++                || deviceBrightnessRampPolicy != null;
++        // The property is in physical linear brightness. Preserve it when entering/leaving the
++        // device path, including when A17 selects a different ramp gamma after a reversal.
++        final float currentLinear = rebaseDeviceRamp && !mFirstTime
++                ? mProperty.get(mObject) : BrightnessUtils.convertGammaToLinear(mCurrentValue);
++        mCurrentRampGamma = targetLinear > currentLinear
+                 ? mBrighteningRampGamma : mDarkeningRampGamma;
+         final float target;
+         // Convert the target from the linear into the HLG space.
+@@ -147,9 +164,19 @@ class RampAnimator<T> {
+             mCurrentRampGamma = 1.0f;
+             target = BrightnessUtils.convertLinearToGamma(targetLinear);
+         }
++        final boolean changed = (mTargetHlgValue != target);
++        if (rebaseDeviceRamp && !mFirstTime) {
++            mCurrentValue = convertLinearToAnimationSpace(currentLinear);
++            mAnimatedValue = mCurrentValue;
++            mAnimatedLinearValue = currentLinear;
++        }
++        if (changed || deviceBrightnessRampPolicy == null) {
++            mDeviceBrightnessRampPolicy = null;
++        }
+
+         // Immediately jump to the target the first time.
+         if (mFirstTime || rate <= 0) {
++            mDeviceBrightnessRampPolicy = null;
+             if (mFirstTime || target != mCurrentValue) {
+                 mFirstTime = false;
+                 mRate = 0;
+@@ -186,10 +213,19 @@ class RampAnimator<T> {
+             mRate = rate;
+         }
+
+-        final boolean changed = (mTargetHlgValue != target);
+         mTargetHlgValue = target;
+         mTargetLinearValue = targetLinear;
+
++        if (changed && target != mCurrentValue && deviceBrightnessRampPolicy != null) {
++            mTransitionStartLinearValue = currentLinear;
++            final float initialRate = getDeviceRate(deviceBrightnessRampPolicy,
++                    currentLinear, currentLinear, targetLinear);
++            if (isValidDeviceRate(initialRate)) {
++                mDeviceBrightnessRampPolicy = deviceBrightnessRampPolicy;
++                mAnimatedLinearValue = currentLinear;
++            }
++        }
++
+         // Start animating.
+         if (!mAnimating && target != mCurrentValue) {
+             mAnimating = true;
+@@ -223,24 +259,54 @@ class RampAnimator<T> {
+         mProperty.setValue(mObject, linearVal);
+     }
+
++    private float convertLinearToAnimationSpace(float linearValue) {
++        return BrightnessUtils.convertLinearToGamma(
++                (float) Math.pow(linearValue, 1.0f / mCurrentRampGamma));
++    }
++
+     void performNextAnimationStep(long frameTimeNanos) {
+         final float timeDelta = (frameTimeNanos - mLastFrameTimeNanos) * 0.000000001f;
+         mLastFrameTimeNanos = frameTimeNanos;
+
+-        // Advance the animated value towards the target at the specified rate
+-        // and clamp to the target. This gives us the new current value but
+-        // we keep the animated value around to allow for fractional increments
+-        // towards the target.
+-        final float scale = ValueAnimator.getDurationScale();
+-        if (scale == 0) {
+-            // Animation off.
+-            mAnimatedValue = mTargetHlgValue;
+-        } else {
+-            final float amount = timeDelta * mRate / scale;
+-            if (mTargetHlgValue > mCurrentValue) {
+-                mAnimatedValue = Math.min(mAnimatedValue + amount, mTargetHlgValue);
++        boolean usedDeviceRate = false;
++        if (mDeviceBrightnessRampPolicy != null) {
++            final float currentLinear = mAnimatedLinearValue;
++            final float deviceRate = getDeviceRate(mDeviceBrightnessRampPolicy,
++                    mTransitionStartLinearValue, currentLinear, mTargetLinearValue);
++            if (isValidDeviceRate(deviceRate)) {
++                final float scale = ValueAnimator.getDurationScale();
++                if (scale == 0) {
++                    mAnimatedLinearValue = mTargetLinearValue;
++                } else {
++                    final float amount = timeDelta * deviceRate / scale;
++                    mAnimatedLinearValue = mTargetLinearValue > currentLinear
++                            ? Math.min(currentLinear + amount, mTargetLinearValue)
++                            : Math.max(currentLinear - amount, mTargetLinearValue);
++                }
++                mAnimatedValue = mAnimatedLinearValue == mTargetLinearValue
++                        ? mTargetHlgValue : convertLinearToAnimationSpace(mAnimatedLinearValue);
++                usedDeviceRate = true;
++            } else {
++                mDeviceBrightnessRampPolicy = null;
++            }
++        }
++
++        if (!usedDeviceRate) {
++            // Advance the animated value towards the target at the specified rate
++            // and clamp to the target. This gives us the new current value but
++            // we keep the animated value around to allow for fractional increments
++            // towards the target.
++            final float scale = ValueAnimator.getDurationScale();
++            if (scale == 0) {
++                // Animation off.
++                mAnimatedValue = mTargetHlgValue;
+             } else {
+-                mAnimatedValue = Math.max(mAnimatedValue - amount, mTargetHlgValue);
++                final float amount = timeDelta * mRate / scale;
++                if (mTargetHlgValue > mCurrentValue) {
++                    mAnimatedValue = Math.min(mAnimatedValue + amount, mTargetHlgValue);
++                } else {
++                    mAnimatedValue = Math.max(mAnimatedValue - amount, mTargetHlgValue);
++                }
+             }
+         }
+         final float oldCurrentValue = mCurrentValue;
+@@ -253,6 +319,19 @@ class RampAnimator<T> {
+         }
+     }
+
++    private float getDeviceRate(DeviceBrightnessRampPolicy policy, float startLinear,
++            float currentLinear, float targetLinear) {
++        try {
++            return policy.getRate(mProperty.getName(), startLinear, currentLinear, targetLinear);
++        } catch (RuntimeException e) {
++            return Float.NaN;
++        }
++    }
++
++    private static boolean isValidDeviceRate(float rate) {
++        return Float.isFinite(rate) && rate > 0.0f;
++    }
++
+     public interface Listener {
+         void onAnimationEnd();
+     }
+@@ -318,10 +397,17 @@ class RampAnimator<T> {
+          */
+         public boolean animateTo(float linearFirstTarget, float linearSecondTarget, float rate,
+                 boolean ignoreAnimationLimits, float luxDelta) {
++            return animateTo(linearFirstTarget, linearSecondTarget, rate, ignoreAnimationLimits,
++                    luxDelta, null);
++        }
++
++        public boolean animateTo(float linearFirstTarget, float linearSecondTarget, float rate,
++                boolean ignoreAnimationLimits, float luxDelta,
++                @Nullable DeviceBrightnessRampPolicy deviceBrightnessRampPolicy) {
+             boolean animationTargetChanged = mFirst.setAnimationTarget(linearFirstTarget, rate,
+-                    ignoreAnimationLimits, luxDelta);
++                    ignoreAnimationLimits, luxDelta, deviceBrightnessRampPolicy);
+             animationTargetChanged |= mSecond.setAnimationTarget(linearSecondTarget, rate,
+-                    ignoreAnimationLimits, luxDelta);
++                    ignoreAnimationLimits, luxDelta, deviceBrightnessRampPolicy);
+             boolean shouldBeAnimating = isAnimating();
+
+             if (shouldBeAnimating != mAwaitingCallback) {
+diff --git a/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java b/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
+index 48400a0a4a7300bcf2bb71e527ca940433897b7a..bbb200f3a7f04a05538ac1918bca2d3ca18e06fb 100644
+--- a/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
++++ b/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
+@@ -93,6 +93,54 @@ public class BrightnessClamperController {
+             };
+
+     private volatile boolean mStarted = false;
++    private float mDeviceThermalCap = PowerManager.BRIGHTNESS_MAX;
++    private float mDeviceSdrCap = PowerManager.BRIGHTNESS_MAX;
++    private float mDeviceHdrCap = PowerManager.BRIGHTNESS_MAX;
++    private boolean mDeviceCapChanged;
++    private boolean mDeviceCapsConfigured;
++    private boolean mDolbyVisionActive;
++
++    public boolean isDolbyVisionActive() {
++        return mDolbyVisionActive;
++    }
++
++    public void setDolbyVisionActive(boolean active) {
++        if (mDolbyVisionActive == active) return;
++        mDolbyVisionActive = active;
++        for (BrightnessStateModifier modifier : mModifiers) {
++            if (modifier instanceof HdrBrightnessModifier hdrModifier) {
++                hdrModifier.setDolbyVisionActive(active);
++            }
++        }
++    }
++
++    /** Device limits participate in the native range, after all native modifiers. */
++    public void setDeviceBrightnessCaps(float thermalCap, float sdrCap, float hdrCap) {
++        mDeviceCapsConfigured = true;
++        if (mDeviceThermalCap == thermalCap && mDeviceSdrCap == sdrCap
++                && mDeviceHdrCap == hdrCap) return;
++        mDeviceCapChanged = thermalCap < mDeviceThermalCap || sdrCap < mDeviceSdrCap
++                || hdrCap < mDeviceHdrCap;
++        mDeviceThermalCap = thermalCap;
++        mDeviceSdrCap = sdrCap;
++        mDeviceHdrCap = hdrCap;
++        recalculateModifiersState();
++    }
++
++    /** Also used by DPC's legacy HBM HDR path, which runs after clamp(). */
++    public float getDeviceHdrBrightnessCap() {
++        return Math.min(mDeviceThermalCap, mDeviceHdrCap);
++    }
++
++    /** Raw SurfaceFlinger HDR-layer presence, independent of whether HDR boost is enabled. */
++    public boolean isHdrLayerPresent() {
++        for (BrightnessStateModifier modifier : mModifiers) {
++            if (modifier instanceof HdrBrightnessModifier hdrModifier) {
++                return hdrModifier.isHdrLayerPresent();
++            }
++        }
++        return false;
++    }
+
+     public BrightnessClamperController(Handler handler,
+             ClamperChangeListener clamperChangeListener, DisplayDeviceData data, Context context,
+@@ -183,6 +231,26 @@ public class BrightnessClamperController {
+             mModifiers.get(i).apply(request, builder);
+         }
+
++        float deviceMax = Math.min(mDeviceThermalCap, mDeviceSdrCap);
++        if (deviceMax < builder.getMaxBrightness()) {
++            builder.setMaxBrightness(deviceMax);
++            builder.setMinBrightness(Math.min(builder.getMinBrightness(), deviceMax));
++            builder.setBrightnessMaxReason(mDeviceThermalCap < mDeviceSdrCap
++                    ? BrightnessInfo.BRIGHTNESS_MAX_REASON_THERMAL
++                    : BrightnessInfo.BRIGHTNESS_MAX_REASON_NONE);
++        }
++        if (builder.getBrightness() > deviceMax) {
++            builder.getBrightnessReason().addModifier(
++                    com.android.server.display.brightness.BrightnessReason.MODIFIER_THROTTLED);
++        }
++        builder.setBrightness(Math.min(builder.getBrightness(), deviceMax));
++        if (mDeviceCapsConfigured
++                && builder.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET) {
++            builder.setHdrBrightness(Math.min(builder.getHdrBrightness(),
++                    Math.min(builder.getMaxBrightness(), getDeviceHdrBrightnessCap())));
++        }
++        if (mDeviceCapChanged) builder.setIsSlowChange(false);
++        mDeviceCapChanged = false;
+         return builder.build();
+     }
+
+@@ -199,6 +267,8 @@ public class BrightnessClamperController {
+     public void dump(PrintWriter writer) {
+         writer.println("BrightnessClamperController:");
+         IndentingPrintWriter ipw = new IndentingPrintWriter(writer, "    ");
++        ipw.println("deviceCaps: thermal=" + mDeviceThermalCap + " sdr=" + mDeviceSdrCap
++                + " hdr=" + mDeviceHdrCap + " configured=" + mDeviceCapsConfigured);
+         mLightSensorController.dump(ipw);
+         mModifiers.forEach(modifier -> modifier.dump(ipw));
+     }
+@@ -237,6 +307,17 @@ public class BrightnessClamperController {
+     private void recalculateModifiersState() {
+         ModifiersAggregatedState newAggregatedState = new ModifiersAggregatedState();
+         mStatefulModifiers.forEach((modifier) -> modifier.applyStateChange(newAggregatedState));
++        float deviceMax = Math.min(mDeviceThermalCap, mDeviceSdrCap);
++        if (deviceMax < newAggregatedState.mMaxBrightness) {
++            newAggregatedState.mMaxBrightness = deviceMax;
++            newAggregatedState.mMinBrightness = Math.min(
++                    newAggregatedState.mMinBrightness, deviceMax);
++            newAggregatedState.mMaxBrightnessReason = mDeviceThermalCap < mDeviceSdrCap
++                    ? BrightnessInfo.BRIGHTNESS_MAX_REASON_THERMAL
++                    : BrightnessInfo.BRIGHTNESS_MAX_REASON_NONE;
++        }
++        newAggregatedState.mMaxHdrBrightness = Math.min(
++                newAggregatedState.mMaxHdrBrightness, getDeviceHdrBrightnessCap());
+
+         if (needToNotifyExternalListener(mModifiersAggregatedState, newAggregatedState)) {
+             mClamperChangeListenerExternal.onChanged();
+diff --git a/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java b/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
+index 180abc67ad8e36a52130e1928e00e7f7445ec909..3bcf37501cca6bd99a8bea3a0b9daba0f1e15747 100644
+--- a/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
++++ b/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
+@@ -94,6 +94,7 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+
+     private float mMaxDesiredHdrRatio = DEFAULT_MAX_HDR_SDR_RATIO;
+     private float mHdrLayerSize = DEFAULT_HDR_LAYER_SIZE;
++    private boolean mDolbyVisionActive;
+
+     private float mAmbientLux = INVALID_LUX;
+
+@@ -149,6 +150,11 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+         if (mMode == Mode.NO_HDR) {
+             return;
+         }
++        if (mDolbyVisionActive && !isHdrLayerPresent()
++                && (request.policy != DisplayManagerInternal.DisplayPowerRequest.POLICY_BRIGHT
++                || request.lowPowerMode)) {
++            return;
++        }
+         if (mMode == Mode.OVERRIDE_HDR && mHdrBoostOverride != null) {
+             float hdrBrightness = mDisplayDeviceConfig.getHdrBrightnessFromSdr(
+                     stateBuilder.getBrightness(), mHdrBoostOverride.sdrHdrRatio());
+@@ -161,7 +167,7 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+             mTransitionRate = CUSTOM_ANIMATION_RATE_NOT_SET;
+         } else if (isNbmOrHbmHdr()) {
+             float hdrBrightness = mDisplayDeviceConfig.getHdrBrightnessFromSdr(
+-                    stateBuilder.getBrightness(), mMaxDesiredHdrRatio, getRatioScaleFactor(),
++                    stateBuilder.getBrightness(), getDesiredHdrRatio(), getRatioScaleFactor(),
+                     mHdrBrightnessData.sdrToHdrRatioSpline);
+             float maxBrightness = getMaxBrightness(mMode, mMaxBrightness, mHdrBrightnessData);
+             hdrBrightness = Math.min(hdrBrightness, maxBrightness);
+@@ -181,6 +187,7 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+         pw.println("  mScreenSize=" + mScreenSize);
+         pw.println("  mMaxDesiredHdrRatio=" + mMaxDesiredHdrRatio);
+         pw.println("  mHdrLayerSize=" + mHdrLayerSize);
++        pw.println("  mDolbyVisionActive=" + mDolbyVisionActive);
+         pw.println("  mAmbientLux=" + mAmbientLux);
+         pw.println("  mLowPowerMode=" + mLowPowerMode);
+         pw.println("  mMode=" + mMode);
+@@ -274,7 +281,7 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+             aggregatedState.mMaxDesiredHdrRatio = mHdrBoostOverride.sdrHdrRatio();
+             aggregatedState.mMaxHdrBrightness = mHdrBoostOverride.maxHdrBrightness();
+         } else if (isNbmOrHbmHdr() && mHdrBrightnessData != null) {
+-            aggregatedState.mMaxDesiredHdrRatio = mMaxDesiredHdrRatio;
++            aggregatedState.mMaxDesiredHdrRatio = getDesiredHdrRatio();
+             aggregatedState.mSdrHdrRatioSpline = mHdrBrightnessData.sdrToHdrRatioSpline;
+             aggregatedState.mMaxHdrBrightness = getMaxBrightness(
+                     mMode, mMaxBrightness, mHdrBrightnessData);
+@@ -301,6 +308,24 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+         return mHdrBrightnessData != null && !mHdrBrightnessData.maxBrightnessLimits.isEmpty();
+     }
+
++    boolean isHdrLayerPresent() {
++        return mHdrLayerSize != DEFAULT_HDR_LAYER_SIZE;
++    }
++
++    void setDolbyVisionActive(boolean active) {
++        if (mDolbyVisionActive == active) return;
++        mDolbyVisionActive = active;
++        mMode = recalculateMode(mHdrBrightnessData, mHdrBoostOverride);
++        mTransitionRate = CUSTOM_ANIMATION_RATE_NOT_SET;
++        mClamperChangeListener.onChanged();
++    }
++
++    private float getDesiredHdrRatio() {
++        // SDR-tagged Dolby buffers supply no SF HDR ratio. Use the configured panel mapping.
++        return mDolbyVisionActive && mHdrBrightnessData != null
++                ? mHdrBrightnessData.highestHdrSdrRatio : mMaxDesiredHdrRatio;
++    }
++
+     private void scheduleMaxBrightnessUpdate(float desiredMaxBrightness, HdrBrightnessData data) {
+         if (mMaxBrightness == desiredMaxBrightness) {
+             mPendingMaxBrightness = mMaxBrightness;
+@@ -333,7 +358,7 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+             return Mode.NO_HDR;
+         }
+         // no HDR layer present
+-        if (mHdrLayerSize == DEFAULT_HDR_LAYER_SIZE) {
++        if (!mDolbyVisionActive && mHdrLayerSize == DEFAULT_HDR_LAYER_SIZE) {
+             return Mode.NO_HDR;
+         }
+         // low power mode and not allowed in low power mode
+@@ -341,7 +366,8 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+             return Mode.NO_HDR;
+         }
+         // HDR layer < minHdr % for Nbm
+-        if (mHdrLayerSize < mScreenSize * data.minimumHdrPercentOfScreenForNbm) {
++        if (!mDolbyVisionActive
++                && mHdrLayerSize < mScreenSize * data.minimumHdrPercentOfScreenForNbm) {
+             return Mode.NO_HDR;
+         }
+         // HDR brightness boost disabled from settings
+@@ -357,7 +383,8 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+             return Mode.OVERRIDE_HDR;
+         }
+         // HDR layer < minHdr % for Hbm, and HDR layer >= that minHdr % for Nbm
+-        if (mHdrLayerSize < mScreenSize * data.minimumHdrPercentOfScreenForHbm) {
++        if (!mDolbyVisionActive
++                && mHdrLayerSize < mScreenSize * data.minimumHdrPercentOfScreenForHbm) {
+             return Mode.NBM_HDR;
+         }
+         // HDR layer > that minHdr % for Hbm
+diff --git a/services/proguard.flags b/services/proguard.flags
+index 36d0f05f86eed927d4c0cd17b676a6b8ac048c4c..ae4a1a461151e910f235bd44c2604dc68eb64572 100644
+--- a/services/proguard.flags
++++ b/services/proguard.flags
+@@ -148,3 +148,10 @@
+ -keep,allowoptimization,allowaccessmodification class lineageos.** { *; }
+ -keep,allowoptimization,allowaccessmodification class org.lineageos.** { *; }
+ -keep,allowoptimization,allowaccessmodification class vendor.lineage.** { *; }
++
++# Optional device display policies live in a separate system-server JAR.
++-keep interface com.android.server.display.DeviceAmbientPolicy { *; }
++-keep class com.android.server.display.DeviceAmbientPolicy$** { *; }
++-keep interface com.android.server.display.DeviceBrightnessPolicy { *; }
++-keep class com.android.server.display.DeviceBrightnessPolicy$** { *; }
++-keep interface com.android.server.display.DeviceBrightnessRampPolicy { *; }
