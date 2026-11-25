@@ -1,6 +1,10 @@
 # Copyright (C) 2026 YorokobiMaster
 # SPDX-License-Identifier: Apache-2.0
 
+# Prefer the retained ODM hardware identity over the ROM's product defaults.
+PRODUCT_SYSTEM_PROPERTIES += \
+    ro.product.property_source_order=odm,product,vendor,system_ext,system
+
 # Bluetooth profiles exposed by the stock phone product.
 PRODUCT_PRODUCT_PROPERTIES += \
     persist.bluetooth.a2dp_offload.coex_buf_count=5 \

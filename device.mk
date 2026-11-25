@@ -100,6 +100,8 @@ DEVICE_PACKAGE_OVERLAYS += \
 PRODUCT_PACKAGES += \
     DashFrameworkResOverlay \
     DashSettingsProviderOverlay \
+    DashPocoGlobalSettingsProviderOverlay \
+    DashPocoIndiaSettingsProviderOverlay \
     DashSystemUIOverlay \
     DashTelecommOverlay \
     DashTelephonyOverlay \

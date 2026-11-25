@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 YorokobiMaster; SPDX-License-Identifier: Apache-2.0 -->
+<overlay>
+    <item target="string/def_device_name_simple" value="POCO X8 Pro Max" />
+</overlay>
