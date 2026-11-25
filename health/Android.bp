@@ -17,35 +17,3 @@ cc_binary {
     init_rc: ["dash-health.rc"],
     vintf_fragments: ["dash-health.xml"],
 }
-
-cc_binary {
-    name: "android.hardware.health-service.dash",
-    vendor: true,
-    // Retained vendor libc++ predates the C++ runtime used by this build.
-    stl: "libc++_static",
-    // Keep the private runtime from interposing on other linker namespaces.
-    ldflags: ["-Wl,--exclude-libs,ALL"],
-    defaults: ["libhealth_aidl_impl_user"],
-    srcs: ["HealthService.cpp"],
-    static_libs: [
-        "libhealth_aidl_impl",
-        // The retained vendor only has V3. Keep V5 inside the replacement HAL.
-        "android.hardware.health-V5-ndk",
-        // The retained libcutils lacks uevent_create_socket and uevent_bind.
-        "libcutils",
-        // Keep C++ objects and streams within the same runtime.
-        "libbase",
-        "libhidlbase",
-        "libutils",
-    ],
-    exclude_shared_libs: [
-        "android.hardware.health-V5-ndk",
-        "libbase",
-        "libcutils",
-        "libhidlbase",
-        "libutils",
-    ],
-    relative_install_path: "hw",
-    init_rc: ["android.hardware.health-service.dash.rc"],
-    // The retained vendor manifest already declares IHealth/default.
-}
