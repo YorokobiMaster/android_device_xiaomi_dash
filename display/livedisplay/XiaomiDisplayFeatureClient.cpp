@@ -15,7 +15,7 @@ using aidl::vendor::xiaomi::hardware::displayfeature_aidl::IDisplayFeature;
 namespace {
 constexpr char kRemoteName[] =
     "vendor.xiaomi.hardware.displayfeature_aidl.IDisplayFeature/default";
-// HyperOS 4 keeps the V2 setFeature transaction and its four-int32 payload.
+// OS3.0.305.0 and OS4.0.4.0 share the V2 setFeature ABI; compare the version, not the OS3 hash.
 constexpr int32_t kExpectedVersion = 2;
 }  // namespace
 
