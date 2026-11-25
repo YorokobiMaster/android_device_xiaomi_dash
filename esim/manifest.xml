@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="openeuicc" fetch="https://gitea.angry.im" />
+  <!-- Last revision before the AGP 9 migration removed the Soong manifest package names. -->
+  <project path="packages/apps/OpenEUICC"
+           name="PeterCxy/OpenEUICC"
+           remote="openeuicc"
+           revision="cad687c50eb2c74adae8bfbc67265efc43f467a7"
+           upstream="refs/heads/master"
+           sync-s="true" />
+  <project path="prebuilts/openeuicc-deps"
+           name="PeterCxy/android_prebuilts_openeuicc-deps"
+           remote="openeuicc"
+           revision="540216793010cabc49782bd01844cd8dd28a4c7c"
+           upstream="refs/heads/master" />
+</manifest>

@@ -91,6 +91,7 @@ include $(DEVICE_PATH)/display/brightness/BoardConfig.mk
 include $(DEVICE_PATH)/fod/BoardConfig.mk
 include $(DASH_HARDWARE_PATH)/power/BoardConfig.mk
 include $(DASH_HARDWARE_PATH)/ims/BoardConfig.mk
+include $(DASH_HARDWARE_PATH)/esim/BoardConfig.mk
 include $(DEVICE_PATH)/display/livedisplay/BoardConfig.mk
 
 # BoardConfig is loaded separately from product inheritance.

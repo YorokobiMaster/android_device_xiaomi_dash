@@ -76,6 +76,13 @@ on post-fs
     umount /mi_ext
     umount /mnt/vendor/mi_ext
 
+# Expose eSIM on the POCO models after detaching mi_ext's permissions overlay.
+on post-fs && property:ro.product.odm.model=2602BPC18G
+    mount none /product/etc/dash-esim/features.xml /product/etc/permissions/dash-esim.xml bind
+
+on post-fs && property:ro.product.odm.model=2602BPC18I
+    mount none /product/etc/dash-esim/features.xml /product/etc/permissions/dash-esim.xml bind
+
 # The retained Xiaomi displayfeature HAL opens this stock ueventd path, while
 # the AOSP ueventd configuration exposes the same mi_display cdev at
 # /dev/disp_feature. Use a hard link so the stock pathname resolves to that

@@ -17,6 +17,9 @@ $(call inherit-product, $(DASH_HARDWARE_PATH)/power/power.mk)
 $(call inherit-product, $(DASH_HARDWARE_PATH)/ims/ims.mk)
 $(call inherit-product, $(DEVICE_PATH)/face/face.mk)
 
+$(call inherit-product, $(DASH_HARDWARE_PATH)/esim/esim.mk)
+PRODUCT_PACKAGES += OpenEUICC
+
 # Device-specific system_server startup list.
 $(call inherit-product, $(DEVICE_PATH)/device-services.mk)
 
