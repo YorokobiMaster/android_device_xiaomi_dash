@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 java_library {
     name: "dash-brightness",
-    srcs: ["src/**/*.java"],
+    srcs: ["//hardware/xiaomi/dash:brightness-policy-sources"],
     libs: ["services.core"],
     static_libs: ["vendor.xiaomi.hardware.displayfeature_aidl-V2-java"],
     platform_apis: true,
