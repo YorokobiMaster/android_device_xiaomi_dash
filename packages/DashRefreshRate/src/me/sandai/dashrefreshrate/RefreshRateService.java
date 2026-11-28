@@ -52,7 +52,6 @@ public final class RefreshRateService extends Service
         mHandlerThread.start();
         mHandler = new Handler(mHandlerThread.getLooper());
         mDisplayManager.registerDisplayListener(this, mHandler);
-        mHandler.post(() -> syncDefaultDisplay(true));
     }
 
     @Override
