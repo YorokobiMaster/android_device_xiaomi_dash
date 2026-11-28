@@ -34,7 +34,7 @@ There's no POCO variant, so this tree targets the China model. Currently, only L
   - Double tap to wake
   - Screen attention
 - [x] Encryption / decryption
-- [ ] Face unlock with the stock HAL (device verification pending)
+- [x] Face unlock
 
 ## Device specifications
 
