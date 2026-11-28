@@ -6,3 +6,4 @@ PRODUCT_PACKAGES += \
     dash-fast-charge \
     dash-health
 DEVICE_PACKAGE_OVERLAYS += $(DEVICE_PATH)/health/overlay
+$(call soong_config_set,dash,charging_settings_lib,//device/xiaomi/dash:dash-charging-speed-settings)

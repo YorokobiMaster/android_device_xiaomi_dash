@@ -1,0 +1,14 @@
+// Copyright (C) 2026 YorokobiMaster
+// SPDX-License-Identifier: Apache-2.0
+
+android_library {
+    name: "dash-charging-speed-settings",
+    manifest: "//hardware/xiaomi/dash:charging-speed-provider-manifest",
+    srcs: ["src/**/*.java"],
+    libs: ["SettingsLibTile"],
+    static_libs: [
+        "//hardware/xiaomi/dash:charging-speed-switch",
+        "org.lineageos.platform.internal",
+    ],
+    platform_apis: true,
+}
