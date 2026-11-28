@@ -34,7 +34,7 @@ Redmi Turbo 5 Max 是一款~~拿上一代MTK旗舰芯片阉割后的~~MTK正代�
   - 双击唤醒
   - 屏幕注意力
 - [x] 加密 / 解密
-- [x] [人脸解锁](https://github.com/PixelOS-AOSP/packages_apps_ParanoidSense/)
+- [ ] 原厂 HAL 人脸解锁（待实机验证）
 
 ## 设备详情
 

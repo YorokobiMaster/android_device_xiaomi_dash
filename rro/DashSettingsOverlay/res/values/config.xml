@@ -4,7 +4,7 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <string name="config_face_enroll" translatable="false">co.aospa.sense/co.aospa.sense.activities.EnrollActivity</string>
+    <bool name="config_face_enroll_hal_owns_camera">true</bool>
 
     <!-- Expose low, medium, and high vibration intensity controls. -->
     <integer name="config_vibration_supported_intensity_levels">3</integer>

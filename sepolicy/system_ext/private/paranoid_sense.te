@@ -1,4 +1,0 @@
-# Copyright (C) 2026 YorokobiMaster
-# SPDX-License-Identifier: Apache-2.0
-
-get_prop(system_server, dash_face_sense_prop)

@@ -34,7 +34,7 @@ There's no POCO variant, so this tree targets the China model. Currently, only L
   - Double tap to wake
   - Screen attention
 - [x] Encryption / decryption
-- [x] [Face unlock](https://github.com/PixelOS-AOSP/packages_apps_ParanoidSense/)
+- [ ] Face unlock with the stock HAL (device verification pending)
 
 ## Device specifications
 
